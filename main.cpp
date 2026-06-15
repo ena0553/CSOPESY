@@ -17,6 +17,18 @@ void displayHeader() {
     cout << "** IMPORTANT: Type 'initialize' to load config and start system **" << endl;
 }
 
+void screen_ls(){
+	cout << "CPU Utilization: " << endl;
+    cout << "Cores used: " << endl;
+    cout << "Cores available: " << endl << endl;
+
+    cout << "--------------------------------------- " << endl;
+    cout << "Running processes: " << endl;
+
+    cout << endl << "Finished processes: " << endl;
+    cout << "--------------------------------------- " << endl;
+}
+
 int main() {
     string input;
 
@@ -43,6 +55,10 @@ int main() {
         cout << "report-util command recognized. Doing something." << endl;
     };
 
+	commandMap["screen -ls"] = []() {
+       screen_ls();
+    };
+	
     commandMap["clear"] = []() {
        system("cls");
        displayHeader();
@@ -70,4 +86,4 @@ int main() {
     }
 
     return 0;
-}
+} 
