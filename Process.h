@@ -1,5 +1,10 @@
 #pragma once
+
+#include "ICommand.h"
 #include <string>
+#include <vector>
+#include <memory>
+
 
 class Process
 {
@@ -10,7 +15,8 @@ public:
 	{
 		READY,
 		RUNNING,
-		FINISHED
+		WAITING,
+		TERMINATED,
 	};
 
 	void setProcessState(ProcessState state); // set process state
@@ -26,12 +32,17 @@ public:
 	ProcessState getState() const; // process's state
 	int getRemainingInstructions() const; // remaining instructions to execute
 
+	void log(const std::string& message) const; // log a message (for PrintCommand)
+
 private:
 	int pid; // process ID
 	std::string type; // process type
 	std::string name; // process name
 
-	int cpuCoreID = -1; // CPU core ID that process is running on, -1 if not running
+	typedef std::vector<std::shared_ptr<ICommand>> CommandList;
+    CommandList commandList; // list of commands
+
+	int cpuCoreID = -1; // CPU core ID that process is running on, -1 if not running(?)
 	std::string memoryUsage; // GPU memory usage
 
 	ProcessState currentState; // process's state
