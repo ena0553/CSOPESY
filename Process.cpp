@@ -2,7 +2,8 @@
 
 // brace initialization for constructor
 Process::Process(int pid, const std::string& type, const std::string& name, const std::string& memoryUsage)
-	: pid{ pid }, type{ type }, name{ name }, memoryUsage{ memoryUsage }, currentState{ READY } {
+	: pid{ pid }, type{ type }, name{ name }, memoryUsage{ memoryUsage }, currentState{ READY },
+	remainingInstructions{ totalCommands } {
 }
 
 void Process::setProcessState(ProcessState state)
@@ -12,11 +13,24 @@ void Process::setProcessState(ProcessState state)
 
 bool Process::isFinished() const
 {
-	if (currentState == FINISHED) {
-		return true;
+	return remainingInstructions == 0;
+}
+
+int Process::getRemainingInstructions() const
+{
+	return remainingInstructions;
+}
+
+void Process::executeInstruction()
+{
+	if (remainingInstructions > 0) {
+		remainingInstructions--;
+		commandCounter++;
 	}
-	
-	return false;
+
+	if (remainingInstructions == 0) {
+		currentState = FINISHED;
+	}
 }
 
 // getters
