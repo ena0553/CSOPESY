@@ -4,50 +4,62 @@
 #include <string>
 #include <vector>
 #include <memory>
-
+#include <fstream>
 
 class Process
 {
 public:
-	Process(int pid, const std::string& type, const std::string& name, const std::string& memoryUsage); // constructor
+    Process(int pid, const std::string& type, const std::string& name, const std::string& memoryUsage); // constructor
+    ~Process(); // destructor to close log file
 
-	enum ProcessState // process's state
-	{
-		READY,
-		RUNNING,
-		WAITING,
-		TERMINATED,
-	};
+    enum ProcessState // process's state
+    {
+        READY,
+        RUNNING,
+        WAITING,
+        TERMINATED,
+    };
 
-	void setProcessState(ProcessState state); // set process state
-	bool isFinished() const; // check if process is finished
+    // --- State management ---
+    void setProcessState(ProcessState state);
 
-	void executeInstruction(); // execute instruction
+    // --- Command management ---
+    void addCommand(std::shared_ptr<ICommand> command); // add a command to the list
+    void executeNextCommand();                           // execute the next command in the list
+    bool isFinished() const;                            // true when all commands have been executed
 
-	// getters
-	int getPID() const; // process ID
-	std::string getType() const;  // process type
-	std::string getName() const; // process name
-	std::string getMemoryUsage() const;  // GPU memory usage
-	ProcessState getState() const; // process's state
-	int getRemainingInstructions() const; // remaining instructions to execute
+    // --- Logging ---
+    void openLogFile();                                          // open the process's .txt log file
+    void log(const std::string& message);                       // write a timestamped log entry
 
-	void log(const std::string& message) const; // log a message (for PrintCommand)
+    // --- Getters ---
+    int getPID() const;
+    std::string getType() const;
+    std::string getName() const;
+    std::string getMemoryUsage() const;
+    ProcessState getState() const;
+    int getCommandCounter() const;    // number of commands executed so far
+    int getTotalCommands() const;     // total number of commands
+    int getCpuCoreID() const;         // which core is running this process
+    std::string getCreationTime() const;  // timestamp string for screen -ls display
+
+    // --- Setters ---
+    void setCpuCoreID(int coreID);
 
 private:
-	int pid; // process ID
-	std::string type; // process type
-	std::string name; // process name
+    int pid;                    // process ID
+    std::string type;           // process type (e.g. "screen")
+    std::string name;           // process name
+    std::string memoryUsage;    // memory usage label
+    std::string creationTime;   // timestamp captured at construction (for screen -ls display)
 
-	typedef std::vector<std::shared_ptr<ICommand>> CommandList;
-    CommandList commandList; // list of commands
+    typedef std::vector<std::shared_ptr<ICommand>> CommandList;
+    CommandList commandList;    // list of commands to execute
 
-	int cpuCoreID = -1; // CPU core ID that process is running on, -1 if not running(?)
-	std::string memoryUsage; // GPU memory usage
+    int cpuCoreID = -1;         // CPU core ID running this process; -1 if not yet assigned
+    int commandCounter = 0;     // index of the next command to execute
 
-	ProcessState currentState; // process's state
-	int totalCommands = 100; /* 100 print commands for Week 6 - Group Homework - FCFS scheduler in OS emulator
-	in our final program this will probably be the list of ICommands */
-	int commandCounter = 0; // index of the current command being executed
-	int remainingInstructions; // remaining instructions to execute
+    ProcessState currentState;  // current state of this process
+
+    std::ofstream logFile;      // file stream for this process's .txt log
 };
