@@ -10,6 +10,15 @@ void Process::setProcessState(ProcessState state)
 	currentState = state;
 }
 
+bool Process::isFinished() const
+{
+	if (currentState == FINISHED) {
+		return true;
+	}
+	
+	return false;
+}
+
 // getters
 int Process::getPID() const { return pid; } // process ID
 std::string Process::getType() const { return type; } // process type

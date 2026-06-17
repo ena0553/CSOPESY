@@ -14,6 +14,7 @@ public:
 	};
 
 	void setProcessState(ProcessState state); // set process state
+	bool isFinished() const; // check if process is finished
 
 	// getters
 	int getPID() const; // process ID
