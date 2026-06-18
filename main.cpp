@@ -6,7 +6,9 @@
 #include <functional>
 #include <cstdlib>
 #include <iomanip>
+#include <random>
 
+#include "FCFSScheduler.h"
 #include "Process.h"
 #include "PrintCommand.h"
 
@@ -16,6 +18,11 @@ using namespace std;
 // Global process list (the scheduler will manage this later)
 // ---------------------------------------------------------------------------
 vector<shared_ptr<Process>> processList;
+
+// ---------------------------------------------------------------------------
+// FCFS Scheduler
+// ---------------------------------------------------------------------------
+FCFSScheduler scheduler(4); // the scheduler with 4 cores
 
 // ---------------------------------------------------------------------------
 // Header
@@ -104,6 +111,15 @@ void initialize() {
          << " processes with " << CMDS_PER_PROCESS
          << " print commands each.\n";
     cout << "[initialize] TODO: hand processList to your FCFS scheduler here.\n";
+
+    // random number generation for random core selection
+    std::random_device random;
+    std::mt19937 gen(random());
+    std::uniform_int_distribution<> distribution(0, 3);
+
+	for (auto& process : processList) {
+		scheduler.addProcess(process, distribution(gen));
+	}
 
     // -----------------------------------------------------------------------
     // STARTER DEMO (remove once the real scheduler is wired in):
