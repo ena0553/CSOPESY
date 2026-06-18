@@ -1,15 +1,14 @@
 #include "FCFSScheduler.h"
 #include <iostream>
-#include <algorithm>
 
 FCFSScheduler::FCFSScheduler(int cores)
 	: numCores{ cores }, processQueues(cores) {
 }
 
-void FCFSScheduler::addProcess(const Process& process, int core)
+void FCFSScheduler::addProcess(std::shared_ptr<Process> process, int core)
 {
 	if (core >= 0 && core < numCores) {
-		processQueues[core].push_back(process);
+		processQueues[core].push(process); // push process to a selected core's queue
 	}
 	else {
 		std::cerr << "Invalid core ID: " << core << std::endl;
