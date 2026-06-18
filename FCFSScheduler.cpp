@@ -10,6 +10,7 @@ void FCFSScheduler::addProcess(std::shared_ptr<Process> process, int core)
 {
 	if (core >= 0 && core < numCores) {
 		processQueues[core].push(process); // push process to a selected core's queue
+		process->setProcessState(Process::WAITING);
 	}
 	else {
 		std::cerr << "Invalid core ID: " << core << std::endl;
@@ -32,6 +33,8 @@ void FCFSScheduler::runScheduler()
 			{
 				currentProcess->executeNextCommand();
 			}
+
+			currentProcess->setProcessState(Process::TERMINATED);
 
 			std::cout << "Process: " << currentProcess->getPID() << " completed on core" << core + 1 << ".\n";
 		}

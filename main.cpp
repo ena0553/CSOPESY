@@ -96,7 +96,7 @@ void initialize() {
 
     for (int i = 1; i <= NUM_PROCESSES; i++) {
         // zero-pad name: process01, process02, ...
-        string name = "process" + (i < 10 ? "0" : "") + to_string(i);
+        string name = string("process") + (i < 10 ? "0" : "") + to_string(i);
         processList.push_back(makeProcess(i, name, CMDS_PER_PROCESS));
     }
 
