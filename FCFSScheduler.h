@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <queue>
+#include <memory>
 
 #include "Process.h"
 

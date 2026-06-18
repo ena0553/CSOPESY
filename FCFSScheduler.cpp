@@ -1,5 +1,6 @@
 #include "FCFSScheduler.h"
 #include <iostream>
+#include <memory>
 
 FCFSScheduler::FCFSScheduler(int cores)
 	: numCores{ cores }, processQueues(cores) {
@@ -17,22 +18,22 @@ void FCFSScheduler::addProcess(std::shared_ptr<Process> process, int core)
 
 void FCFSScheduler::runScheduler()
 {
-	while (!processQueues[0].empty())
+	for (int core = 0; core < numCores; ++core)
 	{
-		for (int core = 0; core < numCores; ++core)
+		while (!processQueues[core].empty())
 		{
-			if (!processQueues[core].empty())
+			std::shared_ptr<Process> currentProcess = processQueues[core].front();
+			processQueues[core].pop();
+
+			currentProcess->setCpuCoreID(core);
+			currentProcess->setProcessState(Process::RUNNING);
+
+			while (!currentProcess->isFinished())
 			{
-				Process currentProcess = processQueues[core].back();
-				processQueues[core].pop_back();
-
-				while (!currentProcess.isFinished())
-				{
-					currentProcess.executeNextCommand();
-				}
-
-				std::cout << "Process: " << currentProcess.getPID() << " completed on core" << core + 1 << ".\n";
+				currentProcess->executeNextCommand();
 			}
+
+			std::cout << "Process: " << currentProcess->getPID() << " completed on core" << core + 1 << ".\n";
 		}
 	}
 }
