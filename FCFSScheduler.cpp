@@ -16,15 +16,6 @@ void FCFSScheduler::addProcess(const Process& process, int core)
 	}
 }
 
-void FCFSScheduler::sortProcessQueues()
-{
-	for (auto& queue : processQueues) {
-		std::sort(queue.begin(), queue.end(), [](const Process& a, const Process& b) {
-			return a.getRemainingInstructions() > b.getRemainingInstructions();
-			});
-	}
-}
-
 void FCFSScheduler::runScheduler()
 {
 	while (!processQueues[0].empty())
@@ -38,7 +29,7 @@ void FCFSScheduler::runScheduler()
 
 				while (!currentProcess.isFinished())
 				{
-					currentProcess.executeInstruction();
+					currentProcess.executeNextCommand();
 				}
 
 				std::cout << "Process: " << currentProcess.getPID() << " completed on core" << core + 1 << ".\n";
