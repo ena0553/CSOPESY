@@ -1,0 +1,30 @@
+#pragma once
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <memory>
+#include "Process.h"
+#include <atomic>
+
+class Worker{
+    public:
+        Worker(int coreId);
+        ~Worker();
+
+        void start();
+        void stop();
+
+        void addProcess(std::shared_ptr<Process>process);
+        bool isRunning() const { return running; }
+        int getCoreId() const { return coreId; }
+
+    private:
+        void run();
+        
+        int coreId;
+        std::queue<std::shared_ptr<Process>> queue; // core's respective queue
+        std::mutex queueMutex;                      // mutex to prevent race condition
+        std::atomic<bool>running = false;
+        std::thread coreThread;                     // core's respective thread
+};

@@ -12,21 +12,20 @@
 #include "Process.h"
 #include "PrintCommand.h"
 
+#include <thread>
+#include <atomic>
+#include <mutex>
+
 using namespace std;
 
-// ---------------------------------------------------------------------------
 // Global process list (the scheduler will manage this later)
-// ---------------------------------------------------------------------------
 vector<shared_ptr<Process>> processList;
 
-// ---------------------------------------------------------------------------
 // FCFS Scheduler
-// ---------------------------------------------------------------------------
 FCFSScheduler scheduler(4); // the scheduler with 4 cores
 
-// ---------------------------------------------------------------------------
+
 // Header
-// ---------------------------------------------------------------------------
 void displayHeader() {
     cout << " _____ _____ _____ _____ _____ _____ __ __ \n";
     cout << "|     |   __|     |  _  |   __|   __|  |  |\n";
@@ -38,10 +37,7 @@ void displayHeader() {
     cout << "** IMPORTANT: Type 'initialize' to load config and start system **" << endl;
 }
 
-// ---------------------------------------------------------------------------
 // screen -ls display
-// Shows running processes and finished processes matching the reference UI.
-// ---------------------------------------------------------------------------
 void screen_ls() {
     // TODO: your scheduler teammate will fill in real CPU utilization numbers
     cout << "CPU Utilization: " << endl;
@@ -75,9 +71,7 @@ void screen_ls() {
     cout << "---------------------------------------\n";
 }
 
-// ---------------------------------------------------------------------------
 // Helper: build one process with numCommands PrintCommands attached
-// ---------------------------------------------------------------------------
 shared_ptr<Process> makeProcess(int pid, const string& name, int numCommands) {
     auto p = make_shared<Process>(pid, "screen", name, "0");
     for (int i = 0; i < numCommands; i++) {
@@ -92,82 +86,60 @@ shared_ptr<Process> makeProcess(int pid, const string& name, int numCommands) {
 // (HW test case: 10 processes, 100 commands each)
 // The scheduler will pick these up from processList and run them.
 // ---------------------------------------------------------------------------
-void initialize() {
+void scheduler_start(int numCores) {
     if (!processList.empty()) {
         cout << "[initialize] System already initialized.\n";
         return;
     }
 
-    const int NUM_PROCESSES   = 10;
+    const int NUM_PROCESSES = 10;
     const int CMDS_PER_PROCESS = 100;
 
     for (int i = 1; i <= NUM_PROCESSES; i++) {
-        // zero-pad name: process01, process02, ...
         string name = string("process") + (i < 10 ? "0" : "") + to_string(i);
         processList.push_back(makeProcess(i, name, CMDS_PER_PROCESS));
     }
 
-    cout << "[initialize] Created " << NUM_PROCESSES
-         << " processes with " << CMDS_PER_PROCESS
-         << " print commands each.\n";
+    cout << "Created " << NUM_PROCESSES << " processes with " << CMDS_PER_PROCESS << " print commands each.\n";
     cout << "[initialize] TODO: hand processList to your FCFS scheduler here.\n";
 
-    // random number generation for random core selection
-    std::random_device random;
-    std::mt19937 gen(random());
-    std::uniform_int_distribution<> distribution(0, 3);
+    //no longer randomized, just queues from 0 to 3 since random doesn't equally distribute it
+    int coreID = 0;
 
 	for (auto& process : processList) {
-		scheduler.addProcess(process, distribution(gen));
+        scheduler.addProcess(process, coreID);
+        coreID = (coreID + 1) % numCores;
 	}
-
-    // -----------------------------------------------------------------------
-    // STARTER DEMO (remove once the real scheduler is wired in):
-    // Run all processes sequentially on a single fake core so you can verify
-    // the .txt files are produced correctly before the scheduler is ready.
-    // -----------------------------------------------------------------------
-    cout << "[demo] Running all processes on core 0 (single-threaded demo)...\n";
-    for (auto& p : processList) {
-        p->setCpuCoreID(0);
-        p->openLogFile();                          // creates e.g. process01.txt
-        p->setProcessState(Process::RUNNING);
-
-        while (!p->isFinished()) {
-            p->executeNextCommand();               // PrintCommand -> Process::log() -> file
+    scheduler.startScheduler();
+    
+    //the sleep here can sometimes cause race conditions when printing
+    for (auto& process : processList) {
+        while (process->getState() != Process::TERMINATED) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
-
-        p->setProcessState(Process::TERMINATED);
-        cout << "  [done] " << p->getName()
-             << "  " << p->getCommandCounter()
-             << " / " << p->getTotalCommands() << "\n";
     }
+
     cout << "[demo] All processes finished. Check the .txt files in your working directory.\n";
 }
 
-// ---------------------------------------------------------------------------
-// main
-// ---------------------------------------------------------------------------
+
 int main() {
     string input;
 
     unordered_map<string, function<void()>> commandMap;
 
     commandMap["initialize"] = []() {
-        initialize();
-    };
-
-    commandMap["screen"] = []() {
-        cout << "screen command recognized. Doing something." << endl;
+        cout << "Initialized successfully" << endl;
     };
 
     commandMap["scheduler-start"] = []() {
         // TODO: your scheduler teammate starts the FCFS scheduler thread here
-        cout << "scheduler-start command recognized. Doing something." << endl;
+        scheduler_start(4);
     };
 
     commandMap["scheduler-stop"] = []() {
-        // TODO: your scheduler teammate stops the scheduler thread here
-        cout << "scheduler-stop command recognized. Doing something." << endl;
+        scheduler.stopScheduler();
+        cout << "Scheduler stopped." << endl;
     };
 
     commandMap["report-util"] = []() {
