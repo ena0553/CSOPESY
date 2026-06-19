@@ -17,7 +17,10 @@ class Worker{
 
         void addProcess(std::shared_ptr<Process>process);
         bool isRunning() const { return running; }
+
+		// getters
         int getCoreId() const { return coreId; }
+		std::shared_ptr<Process> getCurrentProcess() const { return currentProcess; }
 
     private:
         void run();
@@ -27,4 +30,5 @@ class Worker{
         std::mutex queueMutex;                      // mutex to prevent race condition
         std::atomic<bool>running = false;
         std::thread coreThread;                     // core's respective thread
+		std::shared_ptr<Process> currentProcess = nullptr; // current process running on this core
 };

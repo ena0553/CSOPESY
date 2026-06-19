@@ -12,6 +12,7 @@ public:
 	void addProcess(std::shared_ptr<Process> process, int core = 0); // add a process to queue
 	void startScheduler();
 	void stopScheduler();
+	int getBusyCores();
 
 
 private:

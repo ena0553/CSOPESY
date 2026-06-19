@@ -39,10 +39,13 @@ void displayHeader() {
 
 // screen -ls display
 void screen_ls() {
-    // TODO: your scheduler teammate will fill in real CPU utilization numbers
-    cout << "CPU Utilization: " << endl;
-    cout << "Cores used: "      << endl;
-    cout << "Cores available: " << endl << endl;
+
+    int used = scheduler.getBusyCores();
+    int totalCores = 4;
+
+    cout << "CPU Utilization: " << (used * 100.0 / totalCores) << endl;
+    cout << "Cores used: "      << used << endl;
+    cout << "Cores available: " << (totalCores - used) << endl;
 
     cout << "---------------------------------------\n";
     cout << "Running processes:\n";
@@ -101,7 +104,6 @@ void scheduler_start(int numCores) {
     }
 
     cout << "Created " << NUM_PROCESSES << " processes with " << CMDS_PER_PROCESS << " print commands each.\n";
-    cout << "[initialize] TODO: hand processList to your FCFS scheduler here.\n";
 
     //no longer randomized, just queues from 0 to 3 since random doesn't equally distribute it
     int coreID = 0;
@@ -111,15 +113,7 @@ void scheduler_start(int numCores) {
         coreID = (coreID + 1) % numCores;
 	}
     scheduler.startScheduler();
-    
-    //the sleep here can sometimes cause race conditions when printing
-    for (auto& process : processList) {
-        while (process->getState() != Process::TERMINATED) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-    }
 
-    cout << "[demo] All processes finished. Check the .txt files in your working directory.\n";
 }
 
 
@@ -133,7 +127,6 @@ int main() {
     };
 
     commandMap["scheduler-start"] = []() {
-        // TODO: your scheduler teammate starts the FCFS scheduler thread here
         scheduler_start(4);
     };
 

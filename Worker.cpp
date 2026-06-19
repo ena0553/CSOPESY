@@ -37,6 +37,8 @@ void Worker::run(){
             if(!queue.empty()){
                 process = queue.front();
                 queue.pop();
+
+                currentProcess = process; // to check if core is busy
             }
         }
 
@@ -54,6 +56,7 @@ void Worker::run(){
         }
 
         process->setProcessState(Process::TERMINATED); // make sure process ends
+		currentProcess = nullptr; // empty since current process is done
         std::cout << "Core" << coreId << "finished process " << process->getPID() << std::endl;
     }
 }

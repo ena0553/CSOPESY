@@ -37,3 +37,17 @@ void FCFSScheduler::stopScheduler()
 	for(auto& w : workers) w->stop();
 }
 
+int FCFSScheduler::getBusyCores()
+{
+	int count = 0;
+
+	for (const auto& worker : workers)
+	{
+		if (worker->getCurrentProcess() != nullptr)
+		{
+			count++;
+		}
+	}
+
+	return count;
+}
