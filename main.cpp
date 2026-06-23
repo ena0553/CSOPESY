@@ -28,11 +28,11 @@ struct Config
 {
     int numCpu; // range 1 - 128
     string scheduler; // fcfs or rr
-    int quantumCycles; // range 1 - 2^32 (4294967296)
-    int batchProcessFreq; // range 1 - 2^32 (4294967296)
-    int minIns; // range 1 - 2^32 (4294967296)
-    int maxIns; // range 1 - 2^32 (4294967296)
-    int delayPerExec; // range 0 - 2^32 (4294967296)
+    long long quantumCycles; // range 1 - 2^32 (4294967296)
+    long long batchProcessFreq; // range 1 - 2^32 (4294967296)
+    long long minIns; // range 1 - 2^32 (4294967296)
+    long long maxIns; // range 1 - 2^32 (4294967296)
+    long long delayPerExec; // range 0 - 2^32 (4294967296)
 };
 
 // Header
@@ -177,6 +177,7 @@ bool initialize(Config& config)
 		else if (line == "delay-per-exec") { file >> config.delayPerExec; }
     }
 
+    // fail checks for config value ranges
 	if (config.numCpu < 1 || config.numCpu > 128) {
 		cout << "Invalid num-cpu value in config.txt. Must be between 1 and 128." << endl;
         return false;
@@ -207,6 +208,8 @@ bool initialize(Config& config)
 	}
 
     file.close();
+
+    return true;
 }
 
 int main() {
@@ -221,6 +224,10 @@ int main() {
         if (initialize(config)) {
             scheduler = make_unique<FCFSScheduler>(config.numCpu);
             cout << "Initialized successfully" << endl;
+        }
+        else
+        {
+			cout << "Initialization failed" << endl;
         }
     };
 
