@@ -16,7 +16,6 @@
 #include <atomic>
 #include <mutex>
 
-#include <filesystem>
 #include <fstream>
 
 using namespace std;
@@ -144,7 +143,7 @@ void createConfigFile()
 }
 
 // this performs the initialize stuff
-void initialize(Config& config)
+bool initialize(Config& config)
 {
     std::ifstream file("config.txt");
 
@@ -178,6 +177,35 @@ void initialize(Config& config)
 		else if (line == "delay-per-exec") { file >> config.delayPerExec; }
     }
 
+	if (config.numCpu < 1 || config.numCpu > 128) {
+		cout << "Invalid num-cpu value in config.txt. Must be between 1 and 128." << endl;
+        return false;
+	}
+    if (config.scheduler != "fcfs" && config.scheduler != "rr") {
+		cout << "Invalid scheduler value in config.txt. Must be \"fcfs\" or \"rr\"." << endl;
+        return false;
+    }
+    if (config.quantumCycles < 1 || config.quantumCycles > 4294967296) {
+        cout << "Invalid quantum-cycles value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
+        return false;
+    }
+	if (config.batchProcessFreq < 1 || config.batchProcessFreq > 4294967296) {
+		cout << "Invalid batch-process-freq value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
+        return false;
+	}
+	if (config.minIns < 1 || config.minIns > 4294967296) {
+		cout << "Invalid min-ins value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
+        return false;
+	}
+	if (config.maxIns < 1 || config.maxIns > 4294967296) {
+		cout << "Invalid max-ins value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
+        return false;
+	}
+	if (config.delayPerExec < 0 || config.delayPerExec > 4294967296) {
+		cout << "Invalid delay-per-exec value in config.txt. Must be between 0 and 2^32 (4294967296)." << endl;
+        return false;
+	}
+
     file.close();
 }
 
@@ -190,11 +218,10 @@ int main() {
     unordered_map<string, function<void()>> commandMap;
 
     commandMap["initialize"] = [&config, &scheduler]() {
-    	initialize(config);
-    	scheduler = make_unique<FCFSScheduler>(config.numCpu);
-    	cout << "Initialized successfully" << endl;
-
-
+        if (initialize(config)) {
+            scheduler = make_unique<FCFSScheduler>(config.numCpu);
+            cout << "Initialized successfully" << endl;
+        }
     };
 
     commandMap["scheduler-start"] = [&scheduler]() {
