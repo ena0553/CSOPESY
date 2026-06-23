@@ -35,11 +35,6 @@ struct Config
     long long delayPerExec; // range 0 - 2^32 (4294967296)
 };
 
-enum class Mode {
-	MAIN,
-	SUBSCREEN
-};
-
 // Header
 void displayHeader() {
     cout << " _____ _____ _____ _____ _____ _____ __ __ \n";
@@ -89,19 +84,25 @@ void screen_ls(FCFSScheduler& scheduler) {
     cout << "---------------------------------------\n";
 }
 
-// process-smi command for screen -s
-void process_smi(FCFSScheduler& scheduler, shared_ptr<Process>& process)
+// screen -s display
+void screen_s(FCFSScheduler& scheduler, const string& target)
 {
-	cout << "Process name: " << process->getName() << endl;
-	cout << "PID: " << process->getPID() << endl;
-	cout << "Logs: " << endl;
-    process->printLogs();
-	cout << "\n" << "Current instruction line: " << process->getCommandCounter() << endl;
-	cout << "Lines of code: " << process->getTotalCommands() << endl;
-    if (process->isFinished())
-    {
-		cout << "Finished!" << endl;
-    }
+	for (shared_ptr<Process>& p : processList)
+	{
+		if (p->getName() == target)
+		{
+			cout << "Process name: " << p->getName() << endl;
+			cout << "PID: " << p->getPID() << endl;
+			cout << "Logs: " << endl;
+            p->printLogs();
+			cout << "\n" << "Current instruction line: " << p->getCommandCounter() << endl;
+			cout << "Lines of code: " << p->getTotalCommands() << endl;
+			return;
+		}
+
+	}
+
+    cout << "Process " << target << " not found." << endl;
 
 }
 
@@ -242,10 +243,6 @@ int main() {
 
     unordered_map<string, function<void()>> commandMap;
 
-    Mode screenMode = Mode::MAIN; // screen mode for main screen input
-	string screen_s_process; // process name for screen -s
-	shared_ptr<Process> activeProcessInput = nullptr; // the actual process to be checked for screen -s
-
     commandMap["initialize"] = [&config, &scheduler]() {
         if (initialize(config)) {
             scheduler = make_unique<FCFSScheduler>(config.numCpu);
@@ -303,91 +300,37 @@ int main() {
         cout << "Enter a command: ";
         getline(cin, input);
 
-        if (screenMode == Mode::MAIN) {
-
-            // screen -s <process name> command
-            if (input.find("screen -s ") == 0)
-            {
-                screen_s_process = input.substr(string("screen -s ").size()); // process name "screen -s <process name>"
-
-                if (!scheduler) {
-                    cout << "Scheduler not initialized" << endl;
-                    continue;
-                }
-
-                if (screen_s_process.empty())
-                {
-                    cout << "Usage: screen -s <process name>" << endl;
-                    continue;
-                }
-
-                /* keeper of found process in the list to pass onto the higher level activeProcessInput
-                 * for screen -s */
-                shared_ptr<Process> foundProcess = nullptr;
-
-                // look for target process in the list
-                for (shared_ptr<Process>& p : processList)
-                {
-                    if (p->getName() == screen_s_process)
-                    {
-                        // if process name finished execution
-                        if (p->getState() == Process::TERMINATED)
-                        {
-                            cout << "Process " << screen_s_process << " not found." << endl;
-                            foundProcess = nullptr;
-                        }
-                        else
-                        {
-                            foundProcess = p;
-                        }
-                        break;
-                    }
-                }
-
-                // if process name not found
-                if (!foundProcess)
-                {
-                    cout << "Process " << screen_s_process << " not found." << endl;
-                    continue;
-                }
-                
-                activeProcessInput = foundProcess;
-				screenMode = Mode::SUBSCREEN;
-                system("cls");
-                continue;
-            }
-
-            if (input.find("screen -s") == 0)
-            {
-                cout << "Usage: screen -s <process name>" << endl;
-                continue;
-            }
-
-            auto it = commandMap.find(input);
-            if (it != commandMap.end()) {
-                it->second();
-            }
-            else {
-                cout << "Unknown command: " << input << endl;
-            }
-        }
-        else if (screenMode == Mode::SUBSCREEN)
+		// screen -s <process name> command
+        if (input.find("screen -s ") == 0)
         {
-	        if (input == "process-smi")
-	        {
-				/* debug */ cout << activeProcessInput->getName() << endl;
-                process_smi(*scheduler, activeProcessInput);
-	        }
+            string processName = input.substr(10); // process name "screen -s <process name>"
 
-			else if (input == "exit") {
-				screenMode = Mode::MAIN;
-                system("cls");
-				activeProcessInput = nullptr;
-                displayHeader();
-			}
-			else {
-				cout << "Unknown command: " << input << endl;
-			}
+            if (!scheduler) {
+                cout << "Scheduler not initialized" << endl;
+                continue;
+            }
+
+            if (processName.empty())
+            {
+				cout << "Usage: screen -s <process name>" << endl;
+				continue;
+            }
+
+			screen_s(*scheduler, processName);
+            continue;
+        }
+
+        if (input.find("screen -s") == 0)
+        {
+            cout << "Usage: screen -s <process name>" << endl;
+            continue;
+        }
+
+        auto it = commandMap.find(input);
+        if (it != commandMap.end()) {
+            it->second();
+        } else {
+            cout << "Unknown command: " << input << endl;
         }
     }
 
