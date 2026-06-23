@@ -177,6 +177,7 @@ bool initialize(Config& config)
 		else if (line == "delay-per-exec") { file >> config.delayPerExec; }
     }
 
+	const long long max = 4294967296; // 2^32
     // fail checks for config value ranges
 	if (config.numCpu < 1 || config.numCpu > 128) {
 		cout << "Invalid num-cpu value in config.txt. Must be between 1 and 128." << endl;
@@ -186,23 +187,23 @@ bool initialize(Config& config)
 		cout << "Invalid scheduler value in config.txt. Must be \"fcfs\" or \"rr\"." << endl;
         return false;
     }
-    if (config.quantumCycles < 1 || config.quantumCycles > 4294967296) {
+    if (config.quantumCycles < 1 || config.quantumCycles > max) {
         cout << "Invalid quantum-cycles value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
     }
-	if (config.batchProcessFreq < 1 || config.batchProcessFreq > 4294967296) {
+	if (config.batchProcessFreq < 1 || config.batchProcessFreq > max) {
 		cout << "Invalid batch-process-freq value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
 	}
-	if (config.minIns < 1 || config.minIns > 4294967296) {
+	if (config.minIns < 1 || config.minIns > max) {
 		cout << "Invalid min-ins value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
 	}
-	if (config.maxIns < 1 || config.maxIns > 4294967296) {
+	if (config.maxIns < 1 || config.maxIns > max) {
 		cout << "Invalid max-ins value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
 	}
-	if (config.delayPerExec < 0 || config.delayPerExec > 4294967296) {
+	if (config.delayPerExec < 0 || config.delayPerExec > max) {
 		cout << "Invalid delay-per-exec value in config.txt. Must be between 0 and 2^32 (4294967296)." << endl;
         return false;
 	}
