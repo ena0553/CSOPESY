@@ -93,14 +93,17 @@ void screen_s(FCFSScheduler& scheduler, const string& target)
 		{
 			cout << "Process name: " << p->getName() << endl;
 			cout << "PID: " << p->getPID() << endl;
-			cout << "Logs: " /** << TODO: log stuff*/ << endl;
-			cout << "Current instruction line: " << p->getCommandCounter() << endl;
+			cout << "Logs: " << endl;
+            p->printLogs();
+			cout << "\n" << "Current instruction line: " << p->getCommandCounter() << endl;
 			cout << "Lines of code: " << p->getTotalCommands() << endl;
 			return;
 		}
-        
-		cout << "Process " << target << " not found." << endl;
+
 	}
+
+    cout << "Process " << target << " not found." << endl;
+
 }
 
 // Helper: build one process with numCommands PrintCommands attached
@@ -296,6 +299,32 @@ int main() {
     while (running) {
         cout << "Enter a command: ";
         getline(cin, input);
+
+		// screen -s <process name> command
+        if (input.find("screen -s ") == 0)
+        {
+            string processName = input.substr(10); // process name "screen -s <process name>"
+
+            if (!scheduler) {
+                cout << "Scheduler not initialized" << endl;
+                continue;
+            }
+
+            if (processName.empty())
+            {
+				cout << "Usage: screen -s <process name>" << endl;
+				continue;
+            }
+
+			screen_s(*scheduler, processName);
+            continue;
+        }
+
+        if (input.find("screen -s") == 0)
+        {
+            cout << "Usage: screen -s <process name>" << endl;
+            continue;
+        }
 
         auto it = commandMap.find(input);
         if (it != commandMap.end()) {

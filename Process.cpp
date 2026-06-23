@@ -32,11 +32,9 @@ Process::Process(int pid, const std::string& type, const std::string& name, cons
     creationTime = getCurrentTimestamp();
 }
 
-// Destructor — close the log file if it is open
+// Destructor — close the log if it is open
 Process::~Process() {
-    if (logFile.is_open()) {
-        logFile.close();
-    }
+
 }
 
 // State management
@@ -60,24 +58,21 @@ bool Process::isFinished() const {
 }
 
 // Logging
-void Process::openLogFile() {
-    logFile.open(name + ".txt", std::ios::out | std::ios::trunc);
-    if (logFile.is_open()) {
-        logFile << "Process name: " << name << "\n";
-        logFile << "Logs:\n\n";
-    } else {
-        std::cerr << "[WARNING] Could not open log file for process: " << name << "\n";
-    }
-}
-
 void Process::log(const std::string& message) {
     std::string ts = getCurrentTimestamp();
 
     // write to the process's dedicated text file (HW requirement)
-    if (logFile.is_open()) {
-        logFile << ts << " Core:" << cpuCoreID
-                << " \"" << message << "\"\n";
-    }
+    std::string log = ts + " Core:" + std::to_string(cpuCoreID) 
+	+ " \"" + message + "\"\n";
+
+	logs.push_back(log); // store in logs vector for screen -s
+}
+
+void Process::printLogs() const
+{
+	for (const std::string& log : logs) {
+		std::cout << log;
+	}
 }
 
 // Getters
@@ -90,6 +85,7 @@ int Process::getCommandCounter() const          { return commandCounter; }
 int Process::getTotalCommands() const           { return static_cast<int>(commandList.size()); }
 int Process::getCpuCoreID() const               { return cpuCoreID; }
 std::string Process::getCreationTime() const    { return creationTime; }
+std::vector<std::string>& Process::getLogs()    { return logs; }
 
 // Setters
 void Process::setCpuCoreID(int coreID) {
