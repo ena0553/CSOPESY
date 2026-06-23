@@ -51,3 +51,8 @@ int FCFSScheduler::getBusyCores()
 
 	return count;
 }
+
+int FCFSScheduler::getnumCores()
+{
+	return numCores;
+}

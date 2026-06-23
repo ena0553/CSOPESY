@@ -14,6 +14,9 @@ public:
 	void stopScheduler();
 	int getBusyCores();
 
+	// getters
+	int getnumCores();
+
 
 private:
 	int numCores;			// number of cores

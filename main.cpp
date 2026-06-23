@@ -16,14 +16,25 @@
 #include <atomic>
 #include <mutex>
 
+#include <filesystem>
+#include <fstream>
+
 using namespace std;
 
 // Global process list (the scheduler will manage this later)
 vector<shared_ptr<Process>> processList;
 
-// FCFS Scheduler
-FCFSScheduler scheduler(4); // the scheduler with 4 cores
-
+// config structure for config file variables
+struct Config
+{
+    int numCpu; // range 1 - 128
+    string scheduler; // fcfs or rr
+    int quantumCycles; // range 1 - 2^32 (4294967296)
+    int batchProcessFreq; // range 1 - 2^32 (4294967296)
+    int minIns; // range 1 - 2^32 (4294967296)
+    int maxIns; // range 1 - 2^32 (4294967296)
+    int delayPerExec; // range 0 - 2^32 (4294967296)
+};
 
 // Header
 void displayHeader() {
@@ -38,10 +49,10 @@ void displayHeader() {
 }
 
 // screen -ls display
-void screen_ls() {
+void screen_ls(FCFSScheduler& scheduler) {
 
     int used = scheduler.getBusyCores();
-    int totalCores = 4;
+    int totalCores = scheduler.getnumCores();
 
     cout << "CPU Utilization: " << (used * 100.0 / totalCores) << endl;
     cout << "Cores used: "      << used << endl;
@@ -89,7 +100,7 @@ shared_ptr<Process> makeProcess(int pid, const string& name, int numCommands) {
 // (HW test case: 10 processes, 100 commands each)
 // The scheduler will pick these up from processList and run them.
 // ---------------------------------------------------------------------------
-void scheduler_start(int numCores) {
+void scheduler_start(FCFSScheduler& scheduler) {
     if (!processList.empty()) {
         cout << "[initialize] System already initialized.\n";
         return;
@@ -110,28 +121,96 @@ void scheduler_start(int numCores) {
 
 	for (auto& process : processList) {
         scheduler.addProcess(process, coreID);
-        coreID = (coreID + 1) % numCores;
+        coreID = (coreID + 1) % scheduler.getnumCores();
 	}
     scheduler.startScheduler();
 
 }
 
+// this creates the config file if it's not in the folder yet
+void createConfigFile()
+{
+    std::ofstream file("config.txt");
+
+    file << "num-cpu 4\n";
+    file << "scheduler \"fcfs\"\n";
+    file << "quantum-cycles 5\n";
+    file << "batch-process-freq 1\n";
+    file << "min-ins 1000\n";
+    file << "max-ins 2000\n";
+    file << "delay-per-exec 0\n";
+
+    file.close();
+}
+
+// this performs the initialize stuff
+void initialize(Config& config)
+{
+    std::ifstream file("config.txt");
+
+    if (!file.is_open())
+    {
+        createConfigFile();
+		file.open("config.txt");
+    }
+
+    string line; // for reading per line of config file
+
+    while (file >> line) // while reading per line
+    {
+        if (line == "num-cpu") { file >> config.numCpu; }
+		else if (line == "scheduler")
+		{
+			file >> config.scheduler;
+
+            // just remove the quotes around the scheduler name
+            // in the specs it has qutes
+            if (!config.scheduler.empty() &&
+				config.scheduler.front() == '"' && config.scheduler.back() == '"')
+			{
+				config.scheduler = config.scheduler.substr(1, config.scheduler.size() - 2);
+			}
+		}
+		else if (line == "quantum-cycles") { file >> config.quantumCycles; }
+		else if (line == "batch-process-freq") { file >> config.batchProcessFreq; }
+		else if (line == "min-ins") { file >> config.minIns; }
+		else if (line == "max-ins") { file >> config.maxIns; }
+		else if (line == "delay-per-exec") { file >> config.delayPerExec; }
+    }
+
+    file.close();
+}
 
 int main() {
     string input;
 
+	Config config; // config structure for config file variables
+    unique_ptr<FCFSScheduler> scheduler = nullptr; // pointer to be filled later in initialize
+
     unordered_map<string, function<void()>> commandMap;
 
-    commandMap["initialize"] = []() {
-        cout << "Initialized successfully" << endl;
+    commandMap["initialize"] = [&config, &scheduler]() {
+    	initialize(config);
+    	scheduler = make_unique<FCFSScheduler>(config.numCpu);
+    	cout << "Initialized successfully" << endl;
+
+
     };
 
-    commandMap["scheduler-start"] = []() {
-        scheduler_start(4);
+    commandMap["scheduler-start"] = [&scheduler]() {
+		if (!scheduler) {
+			cout << "Scheduler not initialized" << endl;
+            return;
+		}
+        scheduler_start(*scheduler);
     };
 
-    commandMap["scheduler-stop"] = []() {
-        scheduler.stopScheduler();
+    commandMap["scheduler-stop"] = [&scheduler]() {
+        if (!scheduler) {
+            cout << "Scheduler not initialized" << endl;
+            return;
+        }
+        scheduler->stopScheduler();
         cout << "Scheduler stopped." << endl;
     };
 
@@ -139,8 +218,12 @@ int main() {
         cout << "report-util command recognized. Doing something." << endl;
     };
 
-    commandMap["screen -ls"] = []() {
-        screen_ls();
+    commandMap["screen -ls"] = [&scheduler]() {
+        if (!scheduler) {
+            cout << "Scheduler not initialized" << endl;
+            return;
+        }
+        screen_ls(*scheduler);
     };
 
     commandMap["clear"] = []() {
