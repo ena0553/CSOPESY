@@ -84,6 +84,25 @@ void screen_ls(FCFSScheduler& scheduler) {
     cout << "---------------------------------------\n";
 }
 
+// screen -s display
+void screen_s(FCFSScheduler& scheduler, const string& target)
+{
+	for (shared_ptr<Process>& p : processList)
+	{
+		if (p->getName() == target)
+		{
+			cout << "Process name: " << p->getName() << endl;
+			cout << "PID: " << p->getPID() << endl;
+			cout << "Logs: " /** << TODO: log stuff*/ << endl;
+			cout << "Current instruction line: " << p->getCommandCounter() << endl;
+			cout << "Lines of code: " << p->getTotalCommands() << endl;
+			return;
+		}
+        
+		cout << "Process " << target << " not found." << endl;
+	}
+}
+
 // Helper: build one process with numCommands PrintCommands attached
 shared_ptr<Process> makeProcess(int pid, const string& name, int numCommands) {
     auto p = make_shared<Process>(pid, "screen", name, "0");
