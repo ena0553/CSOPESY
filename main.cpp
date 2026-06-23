@@ -35,6 +35,11 @@ struct Config
     long long delayPerExec; // range 0 - 2^32 (4294967296)
 };
 
+enum class Mode {
+    MAIN,
+    SUBSCREEN
+};
+
 // Header
 void displayHeader() {
     cout << " _____ _____ _____ _____ _____ _____ __ __ \n";
@@ -54,55 +59,49 @@ void screen_ls(FCFSScheduler& scheduler) {
     int totalCores = scheduler.getnumCores();
 
     cout << "CPU Utilization: " << (used * 100.0 / totalCores) << endl;
-    cout << "Cores used: "      << used << endl;
+    cout << "Cores used: " << used << endl;
     cout << "Cores available: " << (totalCores - used) << endl;
 
     cout << "---------------------------------------\n";
     cout << "Running processes:\n";
     for (auto& p : processList) {
         if (p->getState() == Process::RUNNING) {
-            cout << left  << setw(12) << p->getName()
-                 << " "   << p->getCreationTime()
-                 << "   Core: " << p->getCpuCoreID()
-                 << "   " << p->getCommandCounter()
-                 << " / " << p->getTotalCommands()
-                 << "\n";
+            cout << left << setw(12) << p->getName()
+                << " " << p->getCreationTime()
+                << "   Core: " << p->getCpuCoreID()
+                << "   " << p->getCommandCounter()
+                << " / " << p->getTotalCommands()
+                << "\n";
         }
     }
 
     cout << "\nFinished processes:\n";
     for (auto& p : processList) {
         if (p->getState() == Process::TERMINATED) {
-            cout << left  << setw(12) << p->getName()
-                 << " "   << p->getCreationTime()
-                 << "   Finished"
-                 << "   " << p->getTotalCommands()
-                 << " / " << p->getTotalCommands()
-                 << "\n";
+            cout << left << setw(12) << p->getName()
+                << " " << p->getCreationTime()
+                << "   Finished"
+                << "   " << p->getTotalCommands()
+                << " / " << p->getTotalCommands()
+                << "\n";
         }
     }
     cout << "---------------------------------------\n";
 }
 
-// screen -s display
-void screen_s(FCFSScheduler& scheduler, const string& target)
+// process-smi command for screen -s
+void process_smi(FCFSScheduler& scheduler, shared_ptr<Process>& process)
 {
-	for (shared_ptr<Process>& p : processList)
-	{
-		if (p->getName() == target)
-		{
-			cout << "Process name: " << p->getName() << endl;
-			cout << "PID: " << p->getPID() << endl;
-			cout << "Logs: " << endl;
-            p->printLogs();
-			cout << "\n" << "Current instruction line: " << p->getCommandCounter() << endl;
-			cout << "Lines of code: " << p->getTotalCommands() << endl;
-			return;
-		}
-
-	}
-
-    cout << "Process " << target << " not found." << endl;
+    cout << "Process name: " << process->getName() << endl;
+    cout << "PID: " << process->getPID() << endl;
+    cout << "Logs: " << endl;
+    process->printLogs();
+    cout << "\n" << "Current instruction line: " << process->getCommandCounter() << endl;
+    cout << "Lines of code: " << process->getTotalCommands() << endl;
+    if (process->isFinished())
+    {
+        cout << "Finished!" << endl;
+    }
 
 }
 
@@ -140,10 +139,10 @@ void scheduler_start(FCFSScheduler& scheduler) {
     //no longer randomized, just queues from 0 to 3 since random doesn't equally distribute it
     int coreID = 0;
 
-	for (auto& process : processList) {
+    for (auto& process : processList) {
         scheduler.addProcess(process, coreID);
         coreID = (coreID + 1) % scheduler.getnumCores();
-	}
+    }
     scheduler.startScheduler();
 
 }
@@ -172,7 +171,7 @@ bool initialize(Config& config)
     if (!file.is_open())
     {
         createConfigFile();
-		file.open("config.txt");
+        file.open("config.txt");
     }
 
     string line; // for reading per line of config file
@@ -180,55 +179,55 @@ bool initialize(Config& config)
     while (file >> line) // while reading per line
     {
         if (line == "num-cpu") { file >> config.numCpu; }
-		else if (line == "scheduler")
-		{
-			file >> config.scheduler;
+        else if (line == "scheduler")
+        {
+            file >> config.scheduler;
 
             // just remove the quotes around the scheduler name
             // in the specs it has qutes
             if (!config.scheduler.empty() &&
-				config.scheduler.front() == '"' && config.scheduler.back() == '"')
-			{
-				config.scheduler = config.scheduler.substr(1, config.scheduler.size() - 2);
-			}
-		}
-		else if (line == "quantum-cycles") { file >> config.quantumCycles; }
-		else if (line == "batch-process-freq") { file >> config.batchProcessFreq; }
-		else if (line == "min-ins") { file >> config.minIns; }
-		else if (line == "max-ins") { file >> config.maxIns; }
-		else if (line == "delay-per-exec") { file >> config.delayPerExec; }
+                config.scheduler.front() == '"' && config.scheduler.back() == '"')
+            {
+                config.scheduler = config.scheduler.substr(1, config.scheduler.size() - 2);
+            }
+        }
+        else if (line == "quantum-cycles") { file >> config.quantumCycles; }
+        else if (line == "batch-process-freq") { file >> config.batchProcessFreq; }
+        else if (line == "min-ins") { file >> config.minIns; }
+        else if (line == "max-ins") { file >> config.maxIns; }
+        else if (line == "delay-per-exec") { file >> config.delayPerExec; }
     }
 
-	const long long max = 4294967296; // 2^32
+    const long long max = 4294967296; // 2^32
     // fail checks for config value ranges
-	if (config.numCpu < 1 || config.numCpu > 128) {
-		cout << "Invalid num-cpu value in config.txt. Must be between 1 and 128." << endl;
+    if (config.numCpu < 1 || config.numCpu > 128) {
+        cout << "Invalid num-cpu value in config.txt. Must be between 1 and 128." << endl;
         return false;
-	}
+    }
     if (config.scheduler != "fcfs" && config.scheduler != "rr") {
-		cout << "Invalid scheduler value in config.txt. Must be \"fcfs\" or \"rr\"." << endl;
+        cout << "Invalid scheduler value in config.txt. Must be \"fcfs\" or \"rr\"." << endl;
         return false;
     }
     if (config.quantumCycles < 1 || config.quantumCycles > max) {
         cout << "Invalid quantum-cycles value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
     }
-	if (config.batchProcessFreq < 1 || config.batchProcessFreq > max) {
-		cout << "Invalid batch-process-freq value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
+    if (config.batchProcessFreq < 1 || config.batchProcessFreq > max) {
+        cout << "Invalid batch-process-freq value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
-	}
-	if (config.minIns < 1 || config.minIns > max) {
-		cout << "Invalid min-ins value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
+    }
+    if (config.minIns < 1 || config.minIns > max) {
+        cout << "Invalid min-ins value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
-	}
-	if (config.maxIns < 1 || config.maxIns > max) {
-		cout << "Invalid max-ins value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
+    }
+    if (config.maxIns < 1 || config.maxIns > max) {
+        cout << "Invalid max-ins value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
-	}
-	if (config.delayPerExec < 0 || config.delayPerExec > max) {
-		cout << "Invalid delay-per-exec value in config.txt. Must be between 0 and 2^32 (4294967296)." << endl;
+    }
+    if (config.delayPerExec < 0 || config.delayPerExec > max) {
+        cout << "Invalid delay-per-exec value in config.txt. Must be between 0 and 2^32 (4294967296)." << endl;
         return false;
-	}
+    }
 
     file.close();
 
@@ -238,10 +237,14 @@ bool initialize(Config& config)
 int main() {
     string input;
 
-	Config config; // config structure for config file variables
+    Config config; // config structure for config file variables
     unique_ptr<FCFSScheduler> scheduler = nullptr; // pointer to be filled later in initialize
 
     unordered_map<string, function<void()>> commandMap;
+
+    Mode screenMode = Mode::MAIN; // screen mode for main screen input
+    string screen_s_process; // process name for screen -s
+    shared_ptr<Process> activeProcessInput = nullptr; // the actual process to be checked for screen -s
 
     commandMap["initialize"] = [&config, &scheduler]() {
         if (initialize(config)) {
@@ -250,17 +253,17 @@ int main() {
         }
         else
         {
-			cout << "Initialization failed" << endl;
+            cout << "Initialization failed" << endl;
         }
-    };
+        };
 
     commandMap["scheduler-start"] = [&scheduler]() {
-		if (!scheduler) {
-			cout << "Scheduler not initialized" << endl;
+        if (!scheduler) {
+            cout << "Scheduler not initialized" << endl;
             return;
-		}
+        }
         scheduler_start(*scheduler);
-    };
+        };
 
     commandMap["scheduler-stop"] = [&scheduler]() {
         if (!scheduler) {
@@ -269,11 +272,11 @@ int main() {
         }
         scheduler->stopScheduler();
         cout << "Scheduler stopped." << endl;
-    };
+        };
 
     commandMap["report-util"] = []() {
         cout << "report-util command recognized. Doing something." << endl;
-    };
+        };
 
     commandMap["screen -ls"] = [&scheduler]() {
         if (!scheduler) {
@@ -281,18 +284,18 @@ int main() {
             return;
         }
         screen_ls(*scheduler);
-    };
+        };
 
     commandMap["clear"] = []() {
         system("cls");
         displayHeader();
-    };
+        };
 
     bool running = true;
     commandMap["exit"] = [&running]() {
         cout << "Exiting program." << endl;
         running = false;
-    };
+        };
 
     displayHeader();
 
@@ -300,37 +303,91 @@ int main() {
         cout << "Enter a command: ";
         getline(cin, input);
 
-		// screen -s <process name> command
-        if (input.find("screen -s ") == 0)
-        {
-            string processName = input.substr(10); // process name "screen -s <process name>"
+        if (screenMode == Mode::MAIN) {
 
-            if (!scheduler) {
-                cout << "Scheduler not initialized" << endl;
+            // screen -s <process name> command
+            if (input.find("screen -s ") == 0)
+            {
+                screen_s_process = input.substr(string("screen -s ").size()); // process name "screen -s <process name>"
+
+                if (!scheduler) {
+                    cout << "Scheduler not initialized" << endl;
+                    continue;
+                }
+
+                if (screen_s_process.empty())
+                {
+                    cout << "Usage: screen -s <process name>" << endl;
+                    continue;
+                }
+
+                /* keeper of found process in the list to pass onto the higher level activeProcessInput
+                 * for screen -s */
+                shared_ptr<Process> foundProcess = nullptr;
+
+                // look for target process in the list
+                for (shared_ptr<Process>& p : processList)
+                {
+                    if (p->getName() == screen_s_process)
+                    {
+                        // if process name finished execution
+                        if (p->getState() == Process::TERMINATED)
+                        {
+                            cout << "Process " << screen_s_process << " not found." << endl;
+                            foundProcess = nullptr;
+                        }
+                        else
+                        {
+                            foundProcess = p;
+                        }
+                        break;
+                    }
+                }
+
+                // if process name not found
+                if (!foundProcess)
+                {
+                    cout << "Process " << screen_s_process << " not found." << endl;
+                    continue;
+                }
+
+                activeProcessInput = foundProcess;
+                screenMode = Mode::SUBSCREEN;
+                system("cls");
                 continue;
             }
 
-            if (processName.empty())
+            if (input.find("screen -s") == 0)
             {
-				cout << "Usage: screen -s <process name>" << endl;
-				continue;
+                cout << "Usage: screen -s <process name>" << endl;
+                continue;
             }
 
-			screen_s(*scheduler, processName);
-            continue;
+            auto it = commandMap.find(input);
+            if (it != commandMap.end()) {
+                it->second();
+            }
+            else {
+                cout << "Unknown command: " << input << endl;
+            }
         }
-
-        if (input.find("screen -s") == 0)
+        else if (screenMode == Mode::SUBSCREEN)
         {
-            cout << "Usage: screen -s <process name>" << endl;
-            continue;
-        }
+            if (input == "process-smi")
+            {
+                /* debug */ cout << activeProcessInput->getName() << endl;
+                process_smi(*scheduler, activeProcessInput);
+            }
 
-        auto it = commandMap.find(input);
-        if (it != commandMap.end()) {
-            it->second();
-        } else {
-            cout << "Unknown command: " << input << endl;
+            else if (input == "exit") {
+                screenMode = Mode::MAIN;
+                system("cls");
+                activeProcessInput = nullptr;
+                displayHeader();
+            }
+            else {
+                cout << "Unknown command: " << input << endl;
+            }
         }
     }
 
