@@ -29,8 +29,8 @@ public:
     bool isFinished() const;                            // true when all commands have been executed
 
     // --- Logging ---
-    void openLogFile();                                          // open the process's .txt log file
     void log(const std::string& message);                       // write a timestamped log entry
+    void printLogs() const; // print all logs for screen -s
 
     // --- Getters ---
     int getPID() const;
@@ -42,6 +42,7 @@ public:
     int getTotalCommands() const;     // total number of commands
     int getCpuCoreID() const;         // which core is running this process
     std::string getCreationTime() const;  // timestamp string for screen -ls display
+	std::vector<std::string>& getLogs(); // get the logs for screen -s
 
     // --- Setters ---
     void setCpuCoreID(int coreID);
@@ -61,5 +62,5 @@ private:
 
     ProcessState currentState;  // current state of this process
 
-    std::ofstream logFile;      // file stream for this process's .txt log
+    std::vector<std::string> logs; // logging for screen -s
 };
