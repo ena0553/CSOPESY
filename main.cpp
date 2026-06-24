@@ -14,6 +14,8 @@
 #include "commands/SleepCommand.h"
 #include "commands/SubtractCommand.h"
 #include "commands/ForCommand.h"
+#include "commands/DeclareCommand.h"
+#include "commands/AddCommand.h"
 
 #include <thread>
 #include <atomic>
@@ -140,7 +142,7 @@ shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
     auto p = make_shared<Process>(pid, "screen", name, "0");
     for (int i = 0; i < numCommands; i++) {
         // Randomly choose a command type
-        int commandType = getRandomInt(1, 4); // 1: PrintCommand, 2: SleepCommand, 3: SubtractCommand, 4: ForCommand
+        int commandType = getRandomInt(1, 6); // 1: Print, 2: Sleep, 3: Subtract, 4: For, 5: Declare, 6: Add
 
         if (commandType == 1) {
             string msg = "Hello world from " + name + "!";
@@ -177,6 +179,19 @@ shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
                 }
             }
             p->addCommand(make_shared<ForCommand>(count, instructions));
+            
+        } else if (commandType == 5) {
+            // DECLARE: random variable name, random initial value
+            std::string varName = "var" + std::to_string(getRandomInt(1, 10));
+            uint16_t initVal = static_cast<uint16_t>(getRandomInt(0, 1000));
+            p->addCommand(make_shared<DeclareCommand>(varName, initVal));
+        } else if (commandType == 6) {
+            // ADD: dest = operand1 + operand2 (mix of variables and literals)
+            std::string dest  = "var" + std::to_string(getRandomInt(1, 10));
+            std::string src1  = "var" + std::to_string(getRandomInt(1, 10));
+            uint16_t    lit   = static_cast<uint16_t>(getRandomInt(0, 500));
+            // operand1 is a variable, operand2 is a literal
+            p->addCommand(make_shared<AddCommand>(dest, Operand{src1}, Operand{lit}));
         }
     }
     return p;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "commands/ICommand.h"
+#include "SymbolTable.h"
 #include <string>
 #include <vector>
 #include <memory>
@@ -48,6 +49,7 @@ public:
     std::string getCreationTime() const;  // timestamp string for screen -ls display
 	std::vector<std::string>& getLogs(); // for screen -s to access logs
     int getSleepTicks() const; // get the remaining sleep ticks
+    SymbolTable& getSymbolTable(); // access this process's variable store
 
     // --- Setters ---
     void setCpuCoreID(int coreID);
@@ -72,4 +74,5 @@ private:
     std::vector<std::string> logs;
 
     int remainingSleepTicks = 0; // remaining ticks to sleep for SleepCommand
+    SymbolTable symbolTable;     // per-process variable memory
 };
