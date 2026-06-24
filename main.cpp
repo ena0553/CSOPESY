@@ -118,6 +118,7 @@ int getRandomInt(int minIns, int maxIns)
 }
 
 // Helper: build one process with numCommands PrintCommands attached
+// TODO: change this to use the random instructions, not just print commands
 shared_ptr<Process> makeProcess(int pid, const string& name, int numCommands) {
     auto p = make_shared<Process>(pid, "screen", name, "0");
     for (int i = 0; i < numCommands; i++) {
@@ -132,22 +133,19 @@ shared_ptr<Process> makeProcess(int pid, const string& name, int numCommands) {
 // (HW test case: 10 processes, 100 commands each)
 // The scheduler will pick these up from processList and run them.
 // ---------------------------------------------------------------------------
-void scheduler_start(FCFSScheduler& scheduler) {
-    if (!processList.empty()) {
-        cout << "[initialize] System already initialized.\n";
-        return;
-    }
-
+void scheduler_start(FCFSScheduler& scheduler, Config config) {
+    // TODO: change this part for cpu ticks thing in specs
     const int NUM_PROCESSES = 10;
-    const int CMDS_PER_PROCESS = 100;
+    int numCommands = 100; 
 
     for (int i = 1; i <= NUM_PROCESSES; i++) {
         string name = string("process") + (i < 10 ? "0" : "") + to_string(i);
-        processList.push_back(makeProcess(pidCounter, name, CMDS_PER_PROCESS));
+        numCommands = getRandomInt(config.minIns, config.maxIns);
+        processList.push_back(makeProcess(pidCounter, name, numCommands));
         pidCounter++;
     }
 
-    cout << "Created " << NUM_PROCESSES << " processes with " << CMDS_PER_PROCESS << " print commands each.\n";
+    cout << "Created " << NUM_PROCESSES << " processes." << endl;
 
     //no longer randomized, just queues from 0 to 3 since random doesn't equally distribute it
     int coreID = 0;
@@ -271,12 +269,12 @@ int main() {
         }
         };
 
-    commandMap["scheduler-start"] = [&scheduler]() {
+    commandMap["scheduler-start"] = [&scheduler, &config]() {
         if (!scheduler) {
             cout << "Scheduler not initialized" << endl;
             return;
         }
-        scheduler_start(*scheduler);
+        scheduler_start(*scheduler, config);
         };
 
     commandMap["scheduler-stop"] = [&scheduler]() {
@@ -343,6 +341,10 @@ int main() {
                 shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands);
                 processList.push_back(newProcess);
 
+                // assign to free core TODO: not sure about coreID assignment here
+                int coreID = scheduler->getBusyCores() % scheduler->getnumCores();
+                scheduler->addProcess(newProcess, coreID);
+
                 activeProcessInput = newProcess;
                 screenMode = Mode::SUBSCREEN;
                 system("cls");
@@ -363,12 +365,12 @@ int main() {
 
                 if (screen_r_process.empty())
                 {
-                    cout << "Usage: screen -s <process name>" << endl;
+                    cout << "Usage: screen -r <process name>" << endl;
                     continue;
                 }
 
                 /* keeper of found process in the list to pass onto the higher level activeProcessInput
-                 * for screen -s */
+                 * for screen -r */
                 shared_ptr<Process> foundProcess = nullptr;
 
                 // look for target process in the list
@@ -376,13 +378,16 @@ int main() {
                 {
                     if (p->getName() == screen_r_process)
                     {
-                        // if process name not finished execution
-                        if (p->getState() != Process::TERMINATED)
-                        {
-                            foundProcess = p;
-                        }
+                        foundProcess = p;
                         break;
                     }
+                }
+
+                // if process name not finished execution
+                if (foundProcess->getState() == Process::TERMINATED)
+                {
+                    cout << "Process " << screen_r_process << " not found." << endl;
+                    continue;
                 }
 
                 // if process name not found
