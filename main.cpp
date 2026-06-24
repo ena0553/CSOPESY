@@ -379,15 +379,15 @@ int main() {
                     }
                 }
 
-                // if process name not finished execution
-                if (foundProcess->getState() == Process::TERMINATED)
+                // if process name not found
+                if (!foundProcess)
                 {
                     cout << "Process " << screen_r_process << " not found." << endl;
                     continue;
                 }
 
-                // if process name not found
-                if (!foundProcess)
+                // if process name not finished execution
+                if (foundProcess->getState() == Process::TERMINATED)
                 {
                     cout << "Process " << screen_r_process << " not found." << endl;
                     continue;
