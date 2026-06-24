@@ -75,6 +75,13 @@ void Process::printLogs() const
 	}
 }
 
+// Sleep management
+void Process::decrementSleepTicks() {
+    if (remainingSleepTicks > 0) {
+        remainingSleepTicks--;
+    }
+}
+
 // Getters
 int Process::getPID() const                     { return pid; }
 std::string Process::getType() const            { return type; }
@@ -86,8 +93,11 @@ int Process::getTotalCommands() const           { return static_cast<int>(comman
 int Process::getCpuCoreID() const               { return cpuCoreID; }
 std::string Process::getCreationTime() const    { return creationTime; }
 std::vector<std::string>& Process::getLogs()    { return logs; }
-
+int Process::getSleepTicks() const              { return remainingSleepTicks; }
 // Setters
 void Process::setCpuCoreID(int coreID) {
     cpuCoreID = coreID;
+}
+void Process::setSleepTicks(int ticks) {
+    remainingSleepTicks = ticks;
 }

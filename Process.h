@@ -33,6 +33,9 @@ public:
     void log(const std::string& message);                       // write a timestamped log entry
     void printLogs() const;
 
+    // --- Sleep management ---
+    void decrementSleepTicks(); // decrement the remaining sleep ticks by 1
+
     // --- Getters ---
     int getPID() const;
     std::string getType() const;
@@ -44,9 +47,11 @@ public:
     int getCpuCoreID() const;         // which core is running this process
     std::string getCreationTime() const;  // timestamp string for screen -ls display
 	std::vector<std::string>& getLogs(); // for screen -s to access logs
+    int getSleepTicks() const; // get the remaining sleep ticks
 
     // --- Setters ---
     void setCpuCoreID(int coreID);
+    void setSleepTicks(int ticks); // set the remaining sleep ticks
 
 private:
     int pid;                    // process ID
@@ -65,4 +70,6 @@ private:
 
     std::ofstream logFile;      // file stream for this process's .txt log
     std::vector<std::string> logs;
+
+    int remainingSleepTicks = 0; // remaining ticks to sleep for SleepCommand
 };

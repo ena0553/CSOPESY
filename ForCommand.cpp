@@ -1,4 +1,5 @@
 #include "ForCommand.h"
+#include "Process.h"
 
 ForCommand::ForCommand(int count, std::shared_ptr<ICommand> instructions)
     : count(count), instructions(instructions)
@@ -13,6 +14,7 @@ void ForCommand::execute(Process& process) {
     for (int i = 0; i < count; i++) {
         instructions->execute(process);
     }
+    process.log("Executed FOR command with " + std::to_string(count) + " iterations");
 }
 
 std::string ForCommand::toString() const {

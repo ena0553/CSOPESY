@@ -11,6 +11,9 @@
 #include "FCFSScheduler.h"
 #include "Process.h"
 #include "PrintCommand.h"
+#include "SleepCommand.h"
+#include "SubtractCommand.h"
+#include "ForCommand.h"
 
 #include <thread>
 #include <atomic>
@@ -119,11 +122,40 @@ int getRandomInt(int minIns, int maxIns)
 
 // Helper: build one process with numCommands PrintCommands attached
 // TODO: change this to use the random instructions, not just print commands
-shared_ptr<Process> makeProcess(int pid, const string& name, int numCommands) {
+shared_ptr<Process> makePrintProcess(int pid, const string& name, int numCommands) {
     auto p = make_shared<Process>(pid, "screen", name, "0");
     for (int i = 0; i < numCommands; i++) {
         string msg = "Hello world from " + name + "!";
         p->addCommand(make_shared<PrintCommand>(msg));
+    }
+    return p;
+}
+
+shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
+    auto p = make_shared<Process>(pid, "screen", name, "0");
+    for (int i = 0; i < numCommands; i++) {
+        // Randomly choose a command type
+        int commandType = getRandomInt(1, 4); // 1: PrintCommand, 2: SleepCommand, 3: SubtractCommand, 4: ForCommand
+
+        if (commandType == 1) {
+            string msg = "Hello world from " + name + "!";
+            p->addCommand(make_shared<PrintCommand>(msg));
+        }
+        else if (commandType == 2) {
+            uint8_t ticks = getRandomInt(1, 10); // Random sleep ticks between 1 and 10
+            p->addCommand(make_shared<SleepCommand>(ticks));
+        }
+        else if (commandType == 3) {
+            int var1 = getRandomInt(1, 100);
+            int var2 = getRandomInt(1, 100);
+            int dest = getRandomInt(1, 100); // Destination variable for the result
+            p->addCommand(make_shared<SubtractCommand>(dest, var1, var2));
+        } else if (commandType == 4) {
+            int count = getRandomInt(1, 5); // Number of iterations for ForCommand
+            string msg = "Hello world from " + name + "!";
+            auto printCmd = make_shared<PrintCommand>(msg);
+            p->addCommand(make_shared<ForCommand>(count, printCmd));
+        }
     }
     return p;
 }
