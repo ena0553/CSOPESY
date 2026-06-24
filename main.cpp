@@ -157,9 +157,26 @@ shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
             p->addCommand(make_shared<SubtractCommand>(dest, var1, var2));
         } else if (commandType == 4) {
             int count = getRandomInt(1, 5); // Number of iterations for ForCommand
-            string msg = "Hello world from " + name + "!";
-            auto printCmd = make_shared<PrintCommand>(msg);
-            p->addCommand(make_shared<ForCommand>(count, printCmd));
+            std::vector<std::shared_ptr<ICommand>> instructions;
+            // Add a few random commands inside the ForCommand
+            for (int j = 0; j < getRandomInt(1, 3); j++) {
+                int innerCommandType = getRandomInt(1, 3); // 1: PrintCommand, 2: SleepCommand, 3: SubtractCommand
+                if (innerCommandType == 1) {
+                    string msg = "Hello from inside FOR loop!";
+                    instructions.push_back(make_shared<PrintCommand>(msg));
+                }
+                else if (innerCommandType == 2) {
+                    uint8_t ticks = getRandomInt(1, 5);
+                    instructions.push_back(make_shared<SleepCommand>(ticks));
+                }
+                else if (innerCommandType == 3) {
+                    int var1 = getRandomInt(1, 50);
+                    int var2 = getRandomInt(1, 50);
+                    int dest = getRandomInt(1, 50);
+                    instructions.push_back(make_shared<SubtractCommand>(dest, var1, var2));
+                }
+            }
+            p->addCommand(make_shared<ForCommand>(count, instructions));
         }
     }
     return p;
