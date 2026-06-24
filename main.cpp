@@ -341,10 +341,6 @@ int main() {
                 shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands);
                 processList.push_back(newProcess);
 
-                // assign to free core TODO: not sure about coreID assignment here
-                int coreID = scheduler->getBusyCores() % scheduler->getnumCores();
-                scheduler->addProcess(newProcess, coreID);
-
                 activeProcessInput = newProcess;
                 screenMode = Mode::SUBSCREEN;
                 system("cls");
