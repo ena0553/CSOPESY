@@ -18,15 +18,20 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
+#include <thread>
 
 #include <fstream>
 
 using namespace std;
 
 // Global process list (the scheduler will manage this later)
+mutex processListMutex;
 vector<shared_ptr<Process>> processList;
+atomic<int> pidCounter = 1; // global PID counter unique PID assignment for processes
 
-static int pidCounter = 1; // global PID counter unique PID assignment for processes
+// global generator thread for generating process in scheduler-start
+atomic<bool> generating = false;
+thread generatorThread;
 
 // config structure for config file variables
 struct Config
@@ -165,29 +170,58 @@ shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
 // (HW test case: 10 processes, 100 commands each)
 // The scheduler will pick these up from processList and run them.
 // ---------------------------------------------------------------------------
+// void scheduler_start(FCFSScheduler& scheduler, Config config) {
+//     // TODO: change this part for cpu ticks thing in specs
+//     const int NUM_PROCESSES = 10;
+//     int numCommands = 100; 
+
+//     for (int i = 1; i <= NUM_PROCESSES; i++) {
+//         string name = string("process") + (i < 10 ? "0" : "") + to_string(i);
+//         numCommands = getRandomInt(config.minIns, config.maxIns);
+//         processList.push_back(makeProcess(pidCounter, name, numCommands));
+//         pidCounter++;
+//     }
+
+//     cout << "Created " << NUM_PROCESSES << " processes." << endl;
+
+//     //no longer randomized, just queues from 0 to 3 since random doesn't equally distribute it
+//     int coreID = 0;
+
+//     for (auto& process : processList) {
+//         scheduler.addProcess(process, coreID);
+//         coreID = (coreID + 1) % scheduler.getnumCores();
+//     }
+//     scheduler.startScheduler();
+
+// }
+
 void scheduler_start(FCFSScheduler& scheduler, Config config) {
-    // TODO: change this part for cpu ticks thing in specs
-    const int NUM_PROCESSES = 10;
-    int numCommands = 100; 
-
-    for (int i = 1; i <= NUM_PROCESSES; i++) {
-        string name = string("process") + (i < 10 ? "0" : "") + to_string(i);
-        numCommands = getRandomInt(config.minIns, config.maxIns);
-        processList.push_back(makeProcess(pidCounter, name, numCommands));
-        pidCounter++;
+    if (generating) {
+        cout << "Process generation is already running." << endl;
+        return;
     }
+    cout << "Generating processes..." << endl;
+    generating = true;
 
-    cout << "Created " << NUM_PROCESSES << " processes." << endl;
+    generatorThread = std::thread([&scheduler, config]() {
+        int coreID = 0;
+        while (generating) {
+            int numCommands = getRandomInt(config.minIns, config.maxIns);
+            string name = string("process") + (pidCounter < 10 ? "0" : "") + to_string(pidCounter);
+            auto newProcess = makeProcess(pidCounter++, name, numCommands);
+            {
+                lock_guard<mutex> lock(processListMutex);
+                processList.push_back(newProcess);
+            }
+            
 
-    //no longer randomized, just queues from 0 to 3 since random doesn't equally distribute it
-    int coreID = 0;
+            // Assign the process to a core in a round-robin fashion
+            scheduler.addProcess(newProcess, coreID);
+            coreID = (coreID + 1) % scheduler.getnumCores();
 
-    for (auto& process : processList) {
-        scheduler.addProcess(process, coreID);
-        coreID = (coreID + 1) % scheduler.getnumCores();
-    }
-    scheduler.startScheduler();
-
+            std::this_thread::sleep_for(std::chrono::seconds(config.batchProcessFreq));
+        }
+    });
 }
 
 // this creates the config file if it's not in the folder yet
@@ -293,6 +327,7 @@ int main() {
     commandMap["initialize"] = [&config, &scheduler]() {
         if (initialize(config)) {
             scheduler = make_unique<FCFSScheduler>(config.numCpu);
+            scheduler->startScheduler();
             cout << "Initialized successfully" << endl;
         }
         else
@@ -314,8 +349,17 @@ int main() {
             cout << "Scheduler not initialized" << endl;
             return;
         }
-        scheduler->stopScheduler();
-        cout << "Scheduler stopped." << endl;
+        if (!generating) {
+            cout << "Process generation is not running." << endl;
+            return;
+        }
+        if (generating) {
+            generating = false;
+            if (generatorThread.joinable()) {
+                generatorThread.join();
+            }
+        }
+        cout << "Process generation stopped." << endl;
         };
 
     commandMap["report-util"] = []() {
@@ -336,8 +380,17 @@ int main() {
         };
 
     bool running = true;
-    commandMap["exit"] = [&running]() {
+    commandMap["exit"] = [&running, &scheduler]() {
         cout << "Exiting program." << endl;
+        if (generating) {
+            generating = false;
+            if (generatorThread.joinable()) {
+                generatorThread.join();
+            }
+        }
+        if (scheduler) {
+            scheduler->stopScheduler();
+        }
         running = false;
         };
 
@@ -372,6 +425,7 @@ int main() {
 
                 shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands);
                 processList.push_back(newProcess);
+                scheduler->addProcess(newProcess, rand() % scheduler->getnumCores()); // assign to a random core
 
                 activeProcessInput = newProcess;
                 screenMode = Mode::SUBSCREEN;
