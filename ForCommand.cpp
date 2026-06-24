@@ -11,10 +11,12 @@ ICommand::CommandType ForCommand::getType() const {
 }
 
 void ForCommand::execute(Process& process) {
+    process.log("Entering FOR loop (" + std::to_string(count) + " iterations)");
     for (int i = 0; i < count; i++) {
+        process.log("Iteration " + std::to_string(i + 1) + "/" + std::to_string(count));
         instructions->execute(process);
     }
-    process.log("Executed FOR command with " + std::to_string(count) + " iterations");
+    process.log("Exiting FOR loop");
 }
 
 std::string ForCommand::toString() const {
