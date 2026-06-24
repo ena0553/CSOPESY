@@ -10,7 +10,7 @@ class ICommand {
             COMPUTE,
             IO,
             MEMORY,
-            FILE
+            FILE,
         };
 
         virtual ~ICommand() = default; // virtual destructor for proper cleanup
