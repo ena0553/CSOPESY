@@ -58,7 +58,7 @@ void displayHeader() {
     cout << "|_____|_____|_____|__|  |_____|_____| |_|  \n";
 
     cout << "Hello, Welcome to CSOPESY commandline!" << endl;
-    cout << "Type 'exit' to quit, 'clear' to clear the screen.\n" << endl;
+    cout << "Type 'exit' to quit, 'help' to display available commands, 'clear' to clear the screen.\n" << endl;
     cout << "** IMPORTANT: Type 'initialize' to load config and start system **" << endl;
 }
 
@@ -377,6 +377,20 @@ int main() {
     commandMap["clear"] = []() {
         system("cls");
         displayHeader();
+        };
+
+    commandMap["help"] = []() {
+        cout << "Available commands:\n";
+        cout << "  initialize          - Load config and start system\n";
+        cout << "  scheduler-start     - Start process generation\n";
+        cout << "  scheduler-stop      - Stop process generation\n";
+        cout << "  report-util         - Report CPU utilization\n";
+        cout << "  screen -ls          - List running and finished processes\n";
+        cout << "  screen -s <name>    - Start a new process with the given name\n";
+        cout << "  screen -r <name>    - Review an existing process with the given name\n";
+        cout << "  clear               - Clear the console screen\n";
+        cout << "  help                - Show this help message\n";
+        cout << "  exit                - Exit the program\n";
         };
 
     bool running = true;
