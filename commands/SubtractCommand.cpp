@@ -1,5 +1,5 @@
 #include "SubtractCommand.h"
-#include "Process.h"
+#include "../Process.h"
 
 SubtractCommand::SubtractCommand(int result, int var1, int var2)
     : result(result), var1(var1), var2(var2)

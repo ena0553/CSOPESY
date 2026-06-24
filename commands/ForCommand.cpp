@@ -1,5 +1,5 @@
 #include "ForCommand.h"
-#include "Process.h"
+#include "../Process.h"
 
 ForCommand::ForCommand(int count, std::shared_ptr<ICommand> instructions)
     : count(count), instructions(instructions)

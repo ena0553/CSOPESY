@@ -1,5 +1,5 @@
 #include "SleepCommand.h"
-#include "Process.h"
+#include "../Process.h"
 
 
 SleepCommand::SleepCommand(uint8_t ticks)

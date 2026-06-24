@@ -10,10 +10,10 @@
 
 #include "FCFSScheduler.h"
 #include "Process.h"
-#include "PrintCommand.h"
-#include "SleepCommand.h"
-#include "SubtractCommand.h"
-#include "ForCommand.h"
+#include "commands/PrintCommand.h"
+#include "commands/SleepCommand.h"
+#include "commands/SubtractCommand.h"
+#include "commands/ForCommand.h"
 
 #include <thread>
 #include <atomic>

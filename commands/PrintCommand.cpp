@@ -1,5 +1,5 @@
 #include "PrintCommand.h"
-#include "Process.h"
+#include "../Process.h"
 #include <thread>
 #include <chrono>
 

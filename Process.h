@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ICommand.h"
+#include "commands/ICommand.h"
 #include <string>
 #include <vector>
 #include <memory>
