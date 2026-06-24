@@ -330,13 +330,8 @@ int main() {
                 {
                     if (p->getName() == screen_s_process)
                     {
-                        // if process name finished execution
-                        if (p->getState() == Process::TERMINATED)
-                        {
-                            cout << "Process " << screen_s_process << " not found." << endl;
-                            foundProcess = nullptr;
-                        }
-                        else
+                        // if process name not finished execution
+                        if (p->getState() != Process::TERMINATED)
                         {
                             foundProcess = p;
                         }
