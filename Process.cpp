@@ -39,7 +39,7 @@ Process::~Process() {
 
 // State management
 void Process::setProcessState(ProcessState state) {
-    currentState = state;
+    currentState.store(state);
 }
 
 // Command management
@@ -87,7 +87,7 @@ int Process::getPID() const                     { return pid; }
 std::string Process::getType() const            { return type; }
 std::string Process::getName() const            { return name; }
 std::string Process::getMemoryUsage() const     { return memoryUsage; }
-Process::ProcessState Process::getState() const { return currentState; }
+Process::ProcessState Process::getState() const { return currentState.load(); }
 int Process::getCommandCounter() const          { return commandCounter; }
 int Process::getTotalCommands() const           { return static_cast<int>(commandList.size()); }
 int Process::getCpuCoreID() const               { return cpuCoreID; }

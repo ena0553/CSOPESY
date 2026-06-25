@@ -22,7 +22,7 @@ class Worker{
 
 		// getters
         int getCoreId() const { return coreId; }
-		std::shared_ptr<Process> getCurrentProcess() const { return currentProcess; }
+		std::shared_ptr<Process> getCurrentProcess();
 
     private:
         void run();

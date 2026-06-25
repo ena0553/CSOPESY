@@ -21,12 +21,12 @@ ProcessScheduler::ProcessScheduler(int cores, string schedulerType, int quantumC
 	
 }
 
-//add process and set it to waiting
+//add process and set it to ready
 void ProcessScheduler::addProcess(std::shared_ptr<Process> process, int core)
 {
 	if (core >= 0 && core < numCores) {
 		workers[core]->addProcess(process);
-		process->setProcessState(Process::WAITING);
+		process->setProcessState(Process::READY);
 	}
 	else {
 		std::cerr << "Invalid core ID: " << core << std::endl;
@@ -56,10 +56,12 @@ int ProcessScheduler::getBusyCores()
 
 	for (const auto& worker : workers)
 	{
-		if (worker->getCurrentProcess() != nullptr)
-		{
-			count++;
-		}
+		auto p = worker->getCurrentProcess();
+
+        if (p && p->getState() == Process::RUNNING)
+        {
+            count++;
+        }
 	}
 
 	return count;

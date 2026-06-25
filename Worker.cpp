@@ -54,8 +54,11 @@ void Worker::run(){
             if(!queue.empty()){
                 process = queue.front();
                 queue.pop();
-
-                currentProcess = process; // to check if core is busy
+                if (process) {
+                    currentProcess = process; // to check if core is busy
+                    process->setCpuCoreID(coreId);
+                    process->setProcessState(Process::RUNNING);
+                }
             }
         }
 
@@ -64,8 +67,8 @@ void Worker::run(){
             continue;
         }
 
-        process->setCpuCoreID(coreId);
-        process->setProcessState(Process::RUNNING);
+        
+        
 
 
         if(isRR){
@@ -85,12 +88,16 @@ void Worker::run(){
         }
 
         if (process->isFinished()) {
-            process->setProcessState(Process::TERMINATED); // make sure process ends
-            {    
-                std::lock_guard<std::mutex> lock(queueMutex);
-                currentProcess = nullptr; // empty since current process is done
-            }
+            std::lock_guard<std::mutex> lock(queueMutex);
+            process->setProcessState(Process::TERMINATED); // make sure process ends   
+            currentProcess = nullptr; // empty since current process is done
+            
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); // simulate time slice
     }
+}
+
+std::shared_ptr<Process> Worker::getCurrentProcess() {
+    std::lock_guard<std::mutex> lock(queueMutex);
+    return currentProcess;
 }

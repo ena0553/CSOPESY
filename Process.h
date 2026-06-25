@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 #include <fstream>
+#include <atomic>
 
 class Process
 {
@@ -68,7 +69,7 @@ private:
     int cpuCoreID = -1;         // CPU core ID running this process; -1 if not yet assigned
     int commandCounter = 0;     // index of the next command to execute
 
-    ProcessState currentState;  // current state of this process
+    std::atomic<ProcessState> currentState;  // current state of this process
 
     std::ofstream logFile;      // file stream for this process's .txt log
     std::vector<std::string> logs;

@@ -76,14 +76,16 @@ void screen_ls(ProcessScheduler& scheduler) {
 
     int used = scheduler.getBusyCores();
     int totalCores = scheduler.getnumCores();
-
+    
     cout << "CPU Utilization: " << (used * 100.0 / totalCores) << endl;
     cout << "Cores used: " << used << endl;
     cout << "Cores available: " << (totalCores - used) << endl;
 
     cout << "---------------------------------------\n";
     cout << "Running processes:\n";
-    for (auto& p : processList) {
+    {   // lock when reading processList to avoid sync issues
+        lock_guard<mutex> lock(processListMutex); 
+        for (auto& p : processList) {
         if (p->getState() == Process::RUNNING) {
             cout << left << setw(12) << p->getName()
                 << " " << p->getCreationTime()
@@ -92,6 +94,8 @@ void screen_ls(ProcessScheduler& scheduler) {
                 << " / " << p->getTotalCommands()
                 << "\n";
         }
+    }
+    
     }
 
     cout << "\nFinished processes:\n";
@@ -120,7 +124,9 @@ void report_util(ProcessScheduler& scheduler) {
 
     outFile << "---------------------------------------\n";
     outFile << "Running processes:\n";
-    for (auto& p : processList) {
+    {   // lock when reading to avoid sync issues
+        lock_guard<mutex> lock(processListMutex);
+        for (auto& p : processList) {
         if (p->getState() == Process::RUNNING) {
             outFile << left << setw(12) << p->getName()
                 << " " << p->getCreationTime()
@@ -129,6 +135,8 @@ void report_util(ProcessScheduler& scheduler) {
                 << " / " << p->getTotalCommands()
                 << "\n";
         }
+    }
+    
     }
 
     outFile << "\nFinished processes:\n";
@@ -510,7 +518,10 @@ int main() {
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
 
                 shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands);
-                processList.push_back(newProcess);
+                {   // lock when adding a new process
+                    lock_guard<mutex> lock(processListMutex);
+                    processList.push_back(newProcess);
+                }
                 scheduler->addProcess(newProcess, rand() % scheduler->getnumCores()); // assign to a random core
 
                 activeProcessInput = newProcess;
