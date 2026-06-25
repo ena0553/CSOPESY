@@ -101,6 +101,43 @@ void screen_ls(FCFSScheduler& scheduler) {
     cout << "---------------------------------------\n";
 }
 
+void report_util(FCFSScheduler& scheduler) {
+    ofstream outFile("report-util.txt");
+
+    int used = scheduler.getBusyCores();
+    int totalCores = scheduler.getnumCores();
+
+    outFile << "CPU Utilization: " << (used * 100.0 / totalCores) << endl;
+    outFile << "Cores used: " << used << endl;
+    outFile << "Cores available: " << (totalCores - used) << endl;
+
+    outFile << "---------------------------------------\n";
+    outFile << "Running processes:\n";
+    for (auto& p : processList) {
+        if (p->getState() == Process::RUNNING) {
+            outFile << left << setw(12) << p->getName()
+                << " " << p->getCreationTime()
+                << "   Core: " << p->getCpuCoreID()
+                << "   " << p->getCommandCounter()
+                << " / " << p->getTotalCommands()
+                << "\n";
+        }
+    }
+
+    outFile << "\nFinished processes:\n";
+    for (auto& p : processList) {
+        if (p->getState() == Process::TERMINATED) {
+            outFile << left << setw(12) << p->getName()
+                << " " << p->getCreationTime()
+                << "   Finished"
+                << "   " << p->getTotalCommands()
+                << " / " << p->getTotalCommands()
+                << "\n";
+        }
+    }
+    outFile << "---------------------------------------\n";
+}
+
 // process-smi command for screen -s
 void process_smi(FCFSScheduler& scheduler, shared_ptr<Process>& process)
 {
@@ -197,35 +234,7 @@ shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
     return p;
 }
 
-// ---------------------------------------------------------------------------
-// "initialize" — creates 10 processes with 100 print commands each
-// (HW test case: 10 processes, 100 commands each)
-// The scheduler will pick these up from processList and run them.
-// ---------------------------------------------------------------------------
-// void scheduler_start(FCFSScheduler& scheduler, Config config) {
-//     // TODO: change this part for cpu ticks thing in specs
-//     const int NUM_PROCESSES = 10;
-//     int numCommands = 100; 
 
-//     for (int i = 1; i <= NUM_PROCESSES; i++) {
-//         string name = string("process") + (i < 10 ? "0" : "") + to_string(i);
-//         numCommands = getRandomInt(config.minIns, config.maxIns);
-//         processList.push_back(makeProcess(pidCounter, name, numCommands));
-//         pidCounter++;
-//     }
-
-//     cout << "Created " << NUM_PROCESSES << " processes." << endl;
-
-//     //no longer randomized, just queues from 0 to 3 since random doesn't equally distribute it
-//     int coreID = 0;
-
-//     for (auto& process : processList) {
-//         scheduler.addProcess(process, coreID);
-//         coreID = (coreID + 1) % scheduler.getnumCores();
-//     }
-//     scheduler.startScheduler();
-
-// }
 
 void scheduler_start(FCFSScheduler& scheduler, Config config) {
     if (generating) {
@@ -394,8 +403,13 @@ int main() {
         cout << "Process generation stopped." << endl;
         };
 
-    commandMap["report-util"] = []() {
-        cout << "report-util command recognized. Doing something." << endl;
+    commandMap["report-util"] = [&scheduler]() {
+        if (!scheduler) {
+            cout << "Scheduler not initialized" << endl;
+            return;
+        }
+        report_util(*scheduler);
+        cout << "CPU Utilization Report generated (report-util.txt).";
         };
 
     commandMap["screen -ls"] = [&scheduler]() {
@@ -407,7 +421,7 @@ int main() {
         };
 
     commandMap["clear"] = []() {
-        system("cls");
+        system("clear");
         displayHeader();
         };
 
@@ -475,7 +489,7 @@ int main() {
 
                 activeProcessInput = newProcess;
                 screenMode = Mode::SUBSCREEN;
-                system("cls");
+                system("clear");
                 continue;
             }
 
@@ -527,7 +541,7 @@ int main() {
 
                 activeProcessInput = foundProcess;
                 screenMode = Mode::SUBSCREEN;
-                system("cls");
+                system("clear");
                 continue;
             }
 
@@ -566,7 +580,7 @@ int main() {
 
             else if (input == "exit") {
                 screenMode = Mode::MAIN;
-                system("cls");
+                system("clear");
                 activeProcessInput = nullptr;
                 displayHeader();
             }

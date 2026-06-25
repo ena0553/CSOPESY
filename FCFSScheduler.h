@@ -3,6 +3,7 @@
 #include <memory>
 #include "Worker.h"
 
+using namespace std;
 
 class FCFSScheduler
 {

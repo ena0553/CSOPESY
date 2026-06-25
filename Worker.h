@@ -7,6 +7,8 @@
 #include "Process.h"
 #include <atomic>
 
+using namespace std;
+
 class Worker{
     public:
         Worker(int coreId);
