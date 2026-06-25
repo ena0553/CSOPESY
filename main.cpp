@@ -26,7 +26,7 @@
 
 using namespace std;
 
-// Global process list (the scheduler will manage this later)
+// Global process list 
 mutex processListMutex;
 vector<shared_ptr<Process>> processList;
 atomic<int> pidCounter = 1; // global PID counter unique PID assignment for processes
@@ -34,6 +34,8 @@ atomic<int> pidCounter = 1; // global PID counter unique PID assignment for proc
 // global generator thread for generating process in scheduler-start
 atomic<bool> generating = false;
 thread generatorThread;
+
+static int varId = 1; // global variable counter
 
 // config structure for config file variables
 struct Config
@@ -164,78 +166,82 @@ int getRandomInt(int minIns, int maxIns)
     return dist(gen);
 }
 
-// Helper: build one process with numCommands PrintCommands attached
-// TODO: change this to use the random instructions, not just print commands
-shared_ptr<Process> makePrintProcess(int pid, const string& name, int numCommands) {
-    auto p = make_shared<Process>(pid, "screen", name, "0");
-    for (int i = 0; i < numCommands; i++) {
-        string msg = "Hello world from " + name + "!";
-        p->addCommand(make_shared<PrintCommand>(msg));
+
+// Helper: Generate two operands (for add and subtract commands)
+std::pair<Operand, Operand> generateOperands() {
+    Operand op1;
+    Operand op2;
+    // will declare a new variable with value 0 if empty, varId + 1 to have a chance to choose a non-existing variable
+    if (getRandomInt(1, 2) == 1) {
+        op1 = std::string("var") + std::to_string(getRandomInt(1, varId + 1)); 
+    } else {
+        op1 = static_cast<uint16_t>(getRandomInt(0, 500));
     }
-    return p;
+
+    if (getRandomInt(1, 2) == 1) {
+        op2 = std::string("var") + std::to_string(getRandomInt(1, varId + 1));
+    } else {
+        op2 = static_cast<uint16_t>(getRandomInt(0, 500));
+    }
+
+    return {op1, op2};
 }
 
+// Generate random commands for a process. For loops can be nested up to 3 times
+shared_ptr<ICommand> generateRandomCommand(const string& name, int depth) {
+    int maxType = (depth < 3) ? 6 : 5;
+    int type = getRandomInt(1, maxType); // 1: Print, 2: Declare, 3: Add, 4: Subtract, 5: Sleep
+    switch (type) {
+        case 1: {
+            // PRINT: unless specified in the test case, the “msg” should always be “Hello world from <process_name>!”
+            string msg = "Hello world from " + name + "!";
+            return make_shared<PrintCommand>(msg);
+        }
+        case 2: {
+            // DECLARE: random variable name, random initial value
+            std::string varName = "var" + to_string(varId++);
+            uint16_t initVal = static_cast<uint16_t>(getRandomInt(0, 1000));
+            return make_shared<DeclareCommand>(varName, initVal);
+        }
+        case 3: {
+            // ADD: performs an addition operation: var1 = var2/value + var3/value
+            auto [op1, op2] = generateOperands();
+            std::string dest  = "var" + to_string(varId++);
+            return make_shared<AddCommand>(dest, op1, op2);
+            
+        }
+        case 4: {
+            auto [op1, op2] = generateOperands();
+            std::string dest  = "var" + to_string(varId++);
+            return make_shared<SubtractCommand>(dest, op1, op2);
+        }
+        case 5: {
+            uint8_t ticks = getRandomInt(1, 10); // Random sleep ticks between 1 and 10
+            return make_shared<SleepCommand>(ticks);
+        }
+        case 6: {
+            int count = getRandomInt(1, 5); // iterations
+            std::vector<std::shared_ptr<ICommand>> instructions;
+            for (int i = 0; i < getRandomInt(1, 3); i++) {
+                instructions.push_back(generateRandomCommand(name, depth + 1));
+            }
+            return make_shared<ForCommand>(count, instructions);
+        }
+    }
+    // this should never be reached
+    return make_shared<PrintCommand>("Error generating command");
+}
+
+// Randomly generates numCommands number of commands for a process
 shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
     auto p = make_shared<Process>(pid, "screen", name, "0");
     for (int i = 0; i < numCommands; i++) {
-        // Randomly choose a command type
-        int commandType = getRandomInt(1, 6); // 1: Print, 2: Sleep, 3: Subtract, 4: For, 5: Declare, 6: Add
-
-        if (commandType == 1) {
-            string msg = "Hello world from " + name + "!";
-            p->addCommand(make_shared<PrintCommand>(msg));
-        }
-        else if (commandType == 2) {
-            uint8_t ticks = getRandomInt(1, 10); // Random sleep ticks between 1 and 10
-            p->addCommand(make_shared<SleepCommand>(ticks));
-        }
-        else if (commandType == 3) {
-            int var1 = getRandomInt(1, 100);
-            int var2 = getRandomInt(1, 100);
-            int dest = getRandomInt(1, 100); // Destination variable for the result
-            p->addCommand(make_shared<SubtractCommand>(dest, var1, var2));
-        } else if (commandType == 4) {
-            int count = getRandomInt(1, 5); // Number of iterations for ForCommand
-            std::vector<std::shared_ptr<ICommand>> instructions;
-            // Add a few random commands inside the ForCommand
-            for (int j = 0; j < getRandomInt(1, 3); j++) {
-                int innerCommandType = getRandomInt(1, 3); // 1: PrintCommand, 2: SleepCommand, 3: SubtractCommand
-                if (innerCommandType == 1) {
-                    string msg = "Hello from inside FOR loop!";
-                    instructions.push_back(make_shared<PrintCommand>(msg));
-                }
-                else if (innerCommandType == 2) {
-                    uint8_t ticks = getRandomInt(1, 5);
-                    instructions.push_back(make_shared<SleepCommand>(ticks));
-                }
-                else if (innerCommandType == 3) {
-                    int var1 = getRandomInt(1, 50);
-                    int var2 = getRandomInt(1, 50);
-                    int dest = getRandomInt(1, 50);
-                    instructions.push_back(make_shared<SubtractCommand>(dest, var1, var2));
-                }
-            }
-            p->addCommand(make_shared<ForCommand>(count, instructions));
-            
-        } else if (commandType == 5) {
-            // DECLARE: random variable name, random initial value
-            std::string varName = "var" + std::to_string(getRandomInt(1, 10));
-            uint16_t initVal = static_cast<uint16_t>(getRandomInt(0, 1000));
-            p->addCommand(make_shared<DeclareCommand>(varName, initVal));
-        } else if (commandType == 6) {
-            // ADD: dest = operand1 + operand2 (mix of variables and literals)
-            std::string dest  = "var" + std::to_string(getRandomInt(1, 10));
-            std::string src1  = "var" + std::to_string(getRandomInt(1, 10));
-            uint16_t    lit   = static_cast<uint16_t>(getRandomInt(0, 500));
-            // operand1 is a variable, operand2 is a literal
-            p->addCommand(make_shared<AddCommand>(dest, Operand{src1}, Operand{lit}));
-        }
+        p->addCommand(generateRandomCommand(name, 0));
     }
     return p;
 }
 
-
-
+// Continuously generate dummy processes every X CPU ticks until scheduler-stop is called. Frequency can be set in config.txt
 void scheduler_start(ProcessScheduler& scheduler, Config config) {
     if (generating) {
         cout << "Process generation is already running." << endl;
@@ -276,7 +282,7 @@ void createConfigFile()
     file << "batch-process-freq 1\n";
     file << "min-ins 1000\n";
     file << "max-ins 2000\n";
-    file << "delay-per-exec 0\n";
+    file << "delay-per-exec 2\n";
 
     file.close();
 }
