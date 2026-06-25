@@ -8,7 +8,7 @@ using namespace std;
 class ProcessScheduler
 {
 public:
-	ProcessScheduler(int cores, std::string schedulerType, int quantumCycles); // constructor
+	ProcessScheduler(int cores, std::string schedulerType, int quantumCycles, int delay); // constructor
 
 	void addProcess(std::shared_ptr<Process> process, int core = 0); // add a process to queue
 	void startScheduler();
@@ -24,6 +24,7 @@ private:
 	int numCores;			// number of cores
 	string schedulerType;
 	int quantumCycles;
+	int delay;
 
 	bool running = false;	
 	std::vector<std::unique_ptr<Worker>> workers;	// workers vector

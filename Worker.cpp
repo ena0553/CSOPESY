@@ -2,7 +2,7 @@
 #include <iostream>
 extern std::atomic<long long> tickCounter;
 
-Worker::Worker(int coreId, int quantumCycles, bool isRR) : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR) {}
+Worker::Worker(int coreId, int quantumCycles, bool isRR, int delay) : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR), delay(delay) {}
 
 Worker::~Worker() { stop(); }
 
@@ -68,10 +68,17 @@ void Worker::run(){
 
 
         if(isRR){
-            long long startTick = tickCounter;
+            long long startTick = tickCounter.load();
 
             while(!process->isFinished() && ( (tickCounter - startTick) < quantumCycles)){
                 process->executeNextCommand();
+                tickCounter++;
+                
+                //local tick variable that increments for delay stuff
+                long long delayStart = tickCounter.load();
+                while ((tickCounter.load() - delayStart) < delay) {
+                    tickCounter++;
+                }
 
                 if(process->getState() == Process::WAITING){
                     std::lock_guard<std::mutex> lock(queueMutex);
@@ -92,6 +99,14 @@ void Worker::run(){
         else{
             while(!process->isFinished()){
                 process->executeNextCommand();
+                tickCounter++;
+
+                //local tick variable that increments for delay stuff
+                long long delayStart = tickCounter.load();
+                while ((tickCounter.load() - delayStart) < delay) {
+                    tickCounter++;
+                }
+
                 if (process->getState() == Process::WAITING) { // handle waiting (sleeping) processes
                     std::lock_guard<std::mutex> lock(queueMutex);
                     sleepingProcesses.push_back(process);

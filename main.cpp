@@ -396,7 +396,7 @@ int main() {
 
     commandMap["initialize"] = [&config, &scheduler]() {
         if (initialize(config)) {
-            scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles);
+            scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec);
             scheduler->startScheduler();
 
             cpuRunning = true;
@@ -447,7 +447,7 @@ int main() {
             return;
         }
         report_util(*scheduler);
-        cout << "CPU Utilization Report generated (report-util.txt).";
+        cout << "CPU Utilization Report generated (report-util.txt)." << endl;
         };
 
     commandMap["screen -ls"] = [&scheduler]() {

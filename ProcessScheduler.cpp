@@ -2,19 +2,19 @@
 #include <iostream>
 
 //makes a unique Worker for each core
-ProcessScheduler::ProcessScheduler(int cores, string schedulerType, int quantumCycles)	
-	: numCores{ cores }, schedulerType { schedulerType }, quantumCycles { quantumCycles } {
+ProcessScheduler::ProcessScheduler(int cores, string schedulerType, int quantumCycles, int delayPerExec)	
+	: numCores{ cores }, schedulerType { schedulerType }, quantumCycles { quantumCycles }, delay { delayPerExec } {
 	
 	bool isRR = true;
 	if (schedulerType == "rr"){
 		for (int i = 0 ; i < cores ; i++){
-			workers.push_back(std::make_unique<Worker>(i, quantumCycles, isRR));
+			workers.push_back(std::make_unique<Worker>(i, quantumCycles, isRR, delay));
 		}
 	}
 
 	else{
 		for (int i = 0 ; i < cores ; i++){
-			workers.push_back(std::make_unique<Worker>(i, quantumCycles, !isRR));
+			workers.push_back(std::make_unique<Worker>(i, quantumCycles, !isRR, delay));
 		}
 	}
 	

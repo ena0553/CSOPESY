@@ -11,7 +11,7 @@ using namespace std;
 
 class Worker{
     public:
-        Worker(int coreId, int quantumCycles, bool isRR);
+        Worker(int coreId, int quantumCycles, bool isRR, int delay);
         ~Worker();
 
         void start();
@@ -30,6 +30,7 @@ class Worker{
         int coreId;
         int quantumCycles;
         bool isRR;
+        int delay;
         
         std::queue<std::shared_ptr<Process>> queue; // core's respective queue
         std::vector<std::shared_ptr<Process>> sleepingProcesses; // completed processes for this core
