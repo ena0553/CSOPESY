@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <random>
 
-#include "FCFSScheduler.h"
+#include "ProcessScheduler.h"
 #include "Process.h"
 #include "commands/PrintCommand.h"
 #include "commands/SleepCommand.h"
@@ -65,7 +65,7 @@ void displayHeader() {
 }
 
 // screen -ls display
-void screen_ls(FCFSScheduler& scheduler) {
+void screen_ls(ProcessScheduler& scheduler) {
 
     int used = scheduler.getBusyCores();
     int totalCores = scheduler.getnumCores();
@@ -101,7 +101,7 @@ void screen_ls(FCFSScheduler& scheduler) {
     cout << "---------------------------------------\n";
 }
 
-void report_util(FCFSScheduler& scheduler) {
+void report_util(ProcessScheduler& scheduler) {
     ofstream outFile("report-util.txt");
 
     int used = scheduler.getBusyCores();
@@ -139,7 +139,7 @@ void report_util(FCFSScheduler& scheduler) {
 }
 
 // process-smi command for screen -s
-void process_smi(FCFSScheduler& scheduler, shared_ptr<Process>& process)
+void process_smi(ProcessScheduler& scheduler, shared_ptr<Process>& process)
 {
     cout << "Process name: " << process->getName() << endl;
     cout << "PID: " << process->getPID() << endl;
@@ -236,7 +236,7 @@ shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
 
 
 
-void scheduler_start(FCFSScheduler& scheduler, Config config) {
+void scheduler_start(ProcessScheduler& scheduler, Config config) {
     if (generating) {
         cout << "Process generation is already running." << endl;
         return;
@@ -356,7 +356,7 @@ int main() {
     string input;
 
     Config config; // config structure for config file variables
-    unique_ptr<FCFSScheduler> scheduler = nullptr; // pointer to be filled later in initialize
+    unique_ptr<ProcessScheduler> scheduler = nullptr; // pointer to be filled later in initialize
 
     unordered_map<string, function<void()>> commandMap;
 
@@ -367,7 +367,7 @@ int main() {
 
     commandMap["initialize"] = [&config, &scheduler]() {
         if (initialize(config)) {
-            scheduler = make_unique<FCFSScheduler>(config.numCpu);
+            scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles);
             scheduler->startScheduler();
             cout << "Initialized successfully" << endl;
         }

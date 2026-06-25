@@ -11,7 +11,7 @@ using namespace std;
 
 class Worker{
     public:
-        Worker(int coreId);
+        Worker(int coreId, int quantumCycles, bool isRR);
         ~Worker();
 
         void start();
@@ -28,6 +28,9 @@ class Worker{
         void run();
         
         int coreId;
+        int quantumCycles;
+        bool isRR;
+        
         std::queue<std::shared_ptr<Process>> queue; // core's respective queue
         std::vector<std::shared_ptr<Process>> sleepingProcesses; // completed processes for this core
         std::mutex queueMutex;                      // mutex to prevent race condition

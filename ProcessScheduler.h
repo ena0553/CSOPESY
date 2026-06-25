@@ -5,10 +5,10 @@
 
 using namespace std;
 
-class FCFSScheduler
+class ProcessScheduler
 {
 public:
-	FCFSScheduler(int cores); // constructor
+	ProcessScheduler(int cores, std::string schedulerType, int quantumCycles); // constructor
 
 	void addProcess(std::shared_ptr<Process> process, int core = 0); // add a process to queue
 	void startScheduler();
@@ -17,10 +17,14 @@ public:
 
 	// getters
 	int getnumCores();
+	string getSchedulerType();
 
 
 private:
 	int numCores;			// number of cores
+	string schedulerType;
+	int quantumCycles;
+
 	bool running = false;	
 	std::vector<std::unique_ptr<Worker>> workers;	// workers vector
 };

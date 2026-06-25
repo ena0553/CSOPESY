@@ -1,7 +1,7 @@
 #include "Worker.h"
 #include <iostream>
 
-Worker::Worker(int coreId) : coreId(coreId) {}
+Worker::Worker(int coreId, int quantumCycles, bool isRR) : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR) {}
 
 Worker::~Worker() { stop(); }
 
