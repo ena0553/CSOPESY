@@ -66,12 +66,27 @@ void Worker::run(){
             continue;
         }
 
-        
-        
-
 
         if(isRR){
-            
+            long long startTick = tickCounter;
+
+            while(!process->isFinished() && ( (tickCounter - startTick) < quantumCycles)){
+                process->executeNextCommand();
+
+                if(process->getState() == Process::WAITING){
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    sleepingProcesses.push_back(process);
+                    currentProcess = nullptr;
+                    break;
+                }
+            }
+
+            if(!process->isFinished() && process->getState() != Process::WAITING){
+                process->setProcessState(Process::READY);
+                std::lock_guard<std::mutex> lock(queueMutex);
+                queue.push(process);
+                currentProcess = nullptr;
+            }
         }
 
         else{

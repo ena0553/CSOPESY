@@ -300,12 +300,12 @@ void createConfigFile()
     std::ofstream file("config.txt");
 
     file << "num-cpu 4\n";
-    file << "scheduler \"fcfs\"\n";
+    file << "scheduler \"rr\"\n";
     file << "quantum-cycles 5\n";
-    file << "batch-process-freq 10000\n";
+    file << "batch-process-freq 1\n";
     file << "min-ins 1000\n";
     file << "max-ins 2000\n";
-    file << "delay-per-exec 2\n";
+    file << "delay-per-exec 0\n";
 
     file.close();
 }
@@ -436,7 +436,7 @@ int main() {
             if (generatorThread.joinable()) {
                 generatorThread.join();
             }
-            cout << processesCreated << "processes created." << endl;
+            cout << processesCreated << " processes created." << endl;
         }
         cout << "Process generation stopped." << endl;
         };
