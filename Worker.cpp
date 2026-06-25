@@ -1,5 +1,6 @@
 #include "Worker.h"
 #include <iostream>
+extern std::atomic<long long> globalTick;
 
 Worker::Worker(int coreId, int quantumCycles, bool isRR) : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR) {}
 
@@ -66,13 +67,20 @@ void Worker::run(){
         process->setCpuCoreID(coreId);
         process->setProcessState(Process::RUNNING);
 
-        while(!process->isFinished()){
-            process->executeNextCommand();
-            if (process->getState() == Process::WAITING) { // handle waiting (sleeping) processes
-                std::lock_guard<std::mutex> lock(queueMutex);
-                sleepingProcesses.push_back(process);
-                currentProcess = nullptr; // empty since current process is waiting
-                break; // exit the inner loop to check for other processes
+
+        if(isRR){
+            
+        }
+
+        else{
+            while(!process->isFinished()){
+                process->executeNextCommand();
+                if (process->getState() == Process::WAITING) { // handle waiting (sleeping) processes
+                    std::lock_guard<std::mutex> lock(queueMutex);
+                    sleepingProcesses.push_back(process);
+                    currentProcess = nullptr; // empty since current process is waiting
+                    break; // exit the inner loop to check for other processes
+                }
             }
         }
 
