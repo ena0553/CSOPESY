@@ -421,7 +421,7 @@ int main() {
         };
 
     commandMap["clear"] = []() {
-        system("clear");
+        system("cls");
         displayHeader();
         };
 
@@ -489,7 +489,7 @@ int main() {
 
                 activeProcessInput = newProcess;
                 screenMode = Mode::SUBSCREEN;
-                system("clear");
+                system("cls");
                 continue;
             }
 
@@ -541,7 +541,7 @@ int main() {
 
                 activeProcessInput = foundProcess;
                 screenMode = Mode::SUBSCREEN;
-                system("clear");
+                system("cls");
                 continue;
             }
 
@@ -580,7 +580,7 @@ int main() {
 
             else if (input == "exit") {
                 screenMode = Mode::MAIN;
-                system("clear");
+                system("cls");
                 activeProcessInput = nullptr;
                 displayHeader();
             }
