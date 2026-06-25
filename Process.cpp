@@ -101,3 +101,7 @@ void Process::setCpuCoreID(int coreID) {
 void Process::setSleepTicks(int ticks) {
     remainingSleepTicks = ticks;
 }
+
+SymbolTable& Process::getSymbolTable() {
+    return symbolTable;
+}
