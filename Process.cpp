@@ -54,7 +54,7 @@ void Process::executeNextCommand() {
 }
 
 bool Process::isFinished() const {
-    return commandCounter >= static_cast<int>(commandList.size());
+    return commandCounter.load() >= static_cast<int>(commandList.size());
 }
 
 // Logging
@@ -88,15 +88,15 @@ std::string Process::getType() const            { return type; }
 std::string Process::getName() const            { return name; }
 std::string Process::getMemoryUsage() const     { return memoryUsage; }
 Process::ProcessState Process::getState() const { return currentState.load(); }
-int Process::getCommandCounter() const          { return commandCounter; }
+int Process::getCommandCounter() const          { return commandCounter.load(); }
 int Process::getTotalCommands() const           { return static_cast<int>(commandList.size()); }
-int Process::getCpuCoreID() const               { return cpuCoreID; }
+int Process::getCpuCoreID() const               { return cpuCoreID.load(); }
 std::string Process::getCreationTime() const    { return creationTime; }
 std::vector<std::string>& Process::getLogs()    { return logs; }
 int Process::getSleepTicks() const              { return remainingSleepTicks; }
 // Setters
 void Process::setCpuCoreID(int coreID) {
-    cpuCoreID = coreID;
+    cpuCoreID.store(coreID);
 }
 void Process::setSleepTicks(int ticks) {
     remainingSleepTicks = ticks;

@@ -66,8 +66,8 @@ private:
     typedef std::vector<std::shared_ptr<ICommand>> CommandList;
     CommandList commandList;    // list of commands to execute
 
-    int cpuCoreID = -1;         // CPU core ID running this process; -1 if not yet assigned
-    int commandCounter = 0;     // index of the next command to execute
+    std::atomic<int> cpuCoreID = -1;         // CPU core ID running this process; -1 if not yet assigned
+    std::atomic<int> commandCounter = 0;     // index of the next command to execute
 
     std::atomic<ProcessState> currentState;  // current state of this process
 
