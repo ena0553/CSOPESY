@@ -224,15 +224,18 @@ shared_ptr<ICommand> generateRandomCommand(const string& name, int depth) {
             
         }
         case 4: {
+            // SUBTRACT: performs a subtraction operation: var1 = var2/value - var3/value
             auto [op1, op2] = generateOperands();
             std::string dest  = "var" + to_string(varId++);
             return make_shared<SubtractCommand>(dest, op1, op2);
         }
         case 5: {
-            uint8_t ticks = getRandomInt(1, 10); // Random sleep ticks between 1 and 10
+            // SLEEP: random sleep ticks between 100 and 1000
+            uint8_t ticks = getRandomInt(100, 1000); // Random sleep ticks between 1 and 10
             return make_shared<SleepCommand>(ticks);
         }
         case 6: {
+            // FOR: loop [1, 3] random commands for [1, 5] iterations (can be nested up to 3 times)
             int count = getRandomInt(1, 5); // iterations
             std::vector<std::shared_ptr<ICommand>> instructions;
             for (int i = 0; i < getRandomInt(1, 3); i++) {
@@ -254,6 +257,7 @@ shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
     return p;
 }
 
+int processesCreated = 0; // for testing
 // Continuously generate dummy processes every X CPU ticks until scheduler-stop is called. Frequency can be set in config.txt
 void scheduler_start(ProcessScheduler& scheduler, Config config) {
     if (generating) {
@@ -262,6 +266,8 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
     }
     cout << "Generating processes..." << endl;
     generating = true;
+    processesCreated = 0;
+    
 
     generatorThread = std::thread([&scheduler, config]() {
         int coreID = 0;
@@ -272,6 +278,7 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
             {
                 lock_guard<mutex> lock(processListMutex);
                 processList.push_back(newProcess);
+                processesCreated++;
             }
             
 
@@ -279,7 +286,10 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
             scheduler.addProcess(newProcess, coreID);
             coreID = (coreID + 1) % scheduler.getnumCores();
 
-            std::this_thread::sleep_for(std::chrono::seconds(config.batchProcessFreq));
+            long long startTick = tickCounter.load();
+            while (generating && tickCounter.load() - startTick < config.batchProcessFreq) {
+                std::this_thread::yield();
+            }
         }
     });
 }
@@ -292,7 +302,7 @@ void createConfigFile()
     file << "num-cpu 4\n";
     file << "scheduler \"fcfs\"\n";
     file << "quantum-cycles 5\n";
-    file << "batch-process-freq 1\n";
+    file << "batch-process-freq 10000\n";
     file << "min-ins 1000\n";
     file << "max-ins 2000\n";
     file << "delay-per-exec 2\n";
@@ -426,6 +436,7 @@ int main() {
             if (generatorThread.joinable()) {
                 generatorThread.join();
             }
+            cout << processesCreated << "processes created." << endl;
         }
         cout << "Process generation stopped." << endl;
         };

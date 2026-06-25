@@ -1,6 +1,6 @@
 #include "Worker.h"
 #include <iostream>
-extern std::atomic<long long> globalTick;
+extern std::atomic<long long> tickCounter;
 
 Worker::Worker(int coreId, int quantumCycles, bool isRR) : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR) {}
 
@@ -38,8 +38,7 @@ void Worker::run(){
             std::lock_guard<std::mutex> lock(queueMutex);
             for (auto it = sleepingProcesses.begin(); it != sleepingProcesses.end(); ) {
                 auto& process = *it;
-                process->decrementSleepTicks();
-                if (process->getSleepTicks() <= 0) {
+                if (tickCounter.load() >= process->getWakeTick()) {
                     process->setProcessState(Process::READY);
                     queue.push(process);
                     it = sleepingProcesses.erase(it); // remove from sleepingProcesses
