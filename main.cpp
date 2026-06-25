@@ -31,6 +31,11 @@ mutex processListMutex;
 vector<shared_ptr<Process>> processList;
 atomic<int> pidCounter = 1; // global PID counter unique PID assignment for processes
 
+// global tick counter
+atomic<long long> tickCounter = 0;
+atomic<bool> cpuRunning = false;
+thread tickThread;
+
 // global generator thread for generating process in scheduler-start
 atomic<bool> generating = false;
 thread generatorThread;
@@ -369,6 +374,14 @@ int main() {
         if (initialize(config)) {
             scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles);
             scheduler->startScheduler();
+
+            cpuRunning = true;
+            tickThread = thread([](){
+                while(cpuRunning){
+                    tickCounter++;
+                }
+            });
+
             cout << "Initialized successfully" << endl;
         }
         else
@@ -448,6 +461,13 @@ int main() {
                 generatorThread.join();
             }
         }
+        
+        cpuRunning = false;
+        if (tickThread.joinable()){
+            tickThread.join();
+        }
+        cout << "ticks: " << tickCounter;
+
         if (scheduler) {
             scheduler->stopScheduler();
         }
