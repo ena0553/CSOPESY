@@ -45,9 +45,9 @@ void Worker::run(){
             for (auto it = sleepingProcesses.begin(); it != sleepingProcesses.end(); ) {
                 auto& process = *it;
                 if (tickCounter.load() >= process->getWakeTick()) {
+                    it = sleepingProcesses.erase(it); // remove from sleepingProcesses
                     process->setProcessState(Process::READY);
                     queue.push(process);
-                    it = sleepingProcesses.erase(it); // remove from sleepingProcesses
                 } else {
                     ++it;
                 }
@@ -74,36 +74,34 @@ void Worker::run(){
 
 
         if(isRR){
-            long long startTick = tickCounter.load();
+            long long now = tickCounter.load();
+            long long usedQuantum = 0;
 
-            while(!process->isFinished() && ( (tickCounter - startTick) < quantumCycles)){
-                process->executeNextCommand();
-                tickCounter++;
-                
-                //local tick variable that increments for delay stuff
-                long long delayStart = tickCounter.load();
-                while ((tickCounter.load() - delayStart) < delay) {
-                    tickCounter++;
+            while(!process->isFinished() && usedQuantum < quantumCycles) {
+                // If process is not allowed to run yet (delay-per-exec)
+                if (tickCounter.load() < process->getNextAvailableTick()) {
+                    continue;
                 }
+                process->executeNextCommand();
+                usedQuantum++;
 
                 if(process->getState() == Process::WAITING){
-                    
+                    std::lock_guard<std::mutex> lock(queueMutex);
                     if (process->isFinished())
                     {
                         currentProcess = nullptr;
                         break;
                     }
-
-                    std::lock_guard<std::mutex> lock(queueMutex);
                     sleepingProcesses.push_back(process);
                     currentProcess = nullptr;
                     break;
                 }
+                process->setNextAvailableTick(tickCounter.load() + delay);
             }
 
             if(!process->isFinished() && process->getState() != Process::WAITING){
-                process->setProcessState(Process::READY);
                 std::lock_guard<std::mutex> lock(queueMutex);
+                process->setProcessState(Process::READY);
                 queue.push(process);
                 currentProcess = nullptr;
             }
@@ -111,24 +109,21 @@ void Worker::run(){
 
         else{
             while(!process->isFinished()){
-                process->executeNextCommand();
-                tickCounter++;
-
-                //local tick variable that increments for delay stuff
-                long long delayStart = tickCounter.load();
-                while ((tickCounter.load() - delayStart) < delay) {
-                    tickCounter++;
+                long long now = tickCounter.load();
+                if (now < process->getNextAvailableTick()) {
+                    continue; // wait until delay-per-exec is done
                 }
 
+                process->executeNextCommand();
+                process->setNextAvailableTick(now + delay);
                 if (process->getState() == Process::WAITING) { // handle waiting (sleeping) processes
-
+                    std::lock_guard<std::mutex> lock(queueMutex);
                     if (process->isFinished())
                     {
                         currentProcess = nullptr;
                         break;
                     }
 
-                    std::lock_guard<std::mutex> lock(queueMutex);
                     sleepingProcesses.push_back(process);
                     currentProcess = nullptr; // empty since current process is waiting
                     break; // exit the inner loop to check for other processes

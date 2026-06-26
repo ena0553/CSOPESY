@@ -101,12 +101,16 @@ int Process::getCpuCoreID() const               { return cpuCoreID.load(); }
 std::string Process::getCreationTime() const    { return creationTime; }
 std::vector<std::string>& Process::getLogs()    { return logs; }
 long long Process::getWakeTick() const               { return wakeTick.load(); }
+long long Process::getNextAvailableTick() const { return nextAvailableTick; }
 // Setters
 void Process::setCpuCoreID(int coreID) {
     cpuCoreID.store(coreID);
 }
 void Process::setWakeTick(long long tick) {
     wakeTick = tick;
+}
+void Process::setNextAvailableTick(long long tick) {
+    nextAvailableTick = tick;
 }
 SymbolTable& Process::getSymbolTable() {
     return symbolTable;

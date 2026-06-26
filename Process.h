@@ -48,12 +48,13 @@ public:
     std::string getCreationTime() const;  // timestamp string for screen -ls display
 	std::vector<std::string>& getLogs(); // for screen -s to access logs
     long long getWakeTick() const; // get the remaining sleep ticks
+    long long getNextAvailableTick() const;
     SymbolTable& getSymbolTable(); // access this process's variable store
 
     // --- Setters ---
     void setCpuCoreID(int coreID);
     void setWakeTick(long long tick); // set the remaining sleep ticks
-
+    void setNextAvailableTick(long long tick);
 private:
     int pid;                    // process ID
     std::string type;           // process type (e.g. "screen")
@@ -75,5 +76,6 @@ private:
     std::vector<std::string> logs;
 
     std::atomic<long long> wakeTick = 0;
+    long long nextAvailableTick = 0;
     SymbolTable symbolTable;     // per-process variable memory
 };

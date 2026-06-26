@@ -103,9 +103,8 @@ void screen_ls(ProcessScheduler& scheduler) {
                 << "   " << p->getCommandCounter()
                 << " / " << p->getTotalCommands()
                 << "\n";
+            }
         }
-    }
-    
     }
 
     cout << "\nFinished processes:\n";
