@@ -13,6 +13,8 @@ ICommand::CommandType AddCommand::getType() const
 
 void AddCommand::execute(Process& process)
 {
+    process.incrementCommandCounter();
+
     uint16_t val1 = resolve(operand1, process);
     uint16_t val2 = resolve(operand2, process);
 

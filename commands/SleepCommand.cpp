@@ -14,6 +14,7 @@ ICommand::CommandType SleepCommand::getType() const {
 }
 
 void SleepCommand::execute(Process& process) {
+    process.incrementCommandCounter();
     process.setWakeTick(tickCounter.load() + ticks);
     process.setProcessState(Process::WAITING);
     process.log("Sleeping for " + std::to_string(ticks) + " ticks (wake at tick " + 

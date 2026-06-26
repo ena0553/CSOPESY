@@ -28,7 +28,8 @@ public:
     // --- Command management ---
     void addCommand(std::shared_ptr<ICommand> command); // add a command to the list
     void executeNextCommand();                           // execute the next command in the list
-    bool isFinished() const;                            // true when all commands have been executed
+    bool isFinished() const;    
+    void incrementCommandCounter();                        // true when all commands have been executed
 
     // --- Logging ---
     void openLogFile();                                          // open the process's .txt log file
@@ -63,8 +64,10 @@ private:
     typedef std::vector<std::shared_ptr<ICommand>> CommandList;
     CommandList commandList;    // list of commands to execute
 
-    std::atomic<int> cpuCoreID = -1;         // CPU core ID running this process; -1 if not yet assigned
-    std::atomic<int> commandCounter = 0;     // index of the next command to execute
+    std::atomic<int> cpuCoreID = -1;        // CPU core ID running this process; -1 if not yet assigned
+    std::atomic<int> commandIndex = 0;      // index of the next command to execute
+    std::atomic<int> commandCounter = 0;    // Executed commands counter
+
 
     std::atomic<ProcessState> currentState;  // current state of this process
 

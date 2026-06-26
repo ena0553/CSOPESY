@@ -49,12 +49,12 @@ void Process::addCommand(std::shared_ptr<ICommand> command) {
 
 void Process::executeNextCommand() {
     if (isFinished()) return;
-    commandList[commandCounter]->execute(*this);  // runs PrintCommand::execute -> calls this->log()
-    commandCounter++;
+    commandList[commandIndex]->execute(*this);  // runs PrintCommand::execute -> calls this->log()
+    commandIndex++;
 }
 
 bool Process::isFinished() const {
-    return commandCounter.load() >= static_cast<int>(commandList.size());
+    return getCommandCounter() >= getTotalCommands();
 }
 
 // Logging
@@ -75,6 +75,9 @@ void Process::printLogs() const
 	}
 }
 
+void Process::incrementCommandCounter() {
+    commandCounter++;
+}
 
 
 // Getters
@@ -83,8 +86,17 @@ std::string Process::getType() const            { return type; }
 std::string Process::getName() const            { return name; }
 std::string Process::getMemoryUsage() const     { return memoryUsage; }
 Process::ProcessState Process::getState() const { return currentState.load(); }
-int Process::getCommandCounter() const          { return commandCounter.load(); }
-int Process::getTotalCommands() const           { return static_cast<int>(commandList.size()); }
+int Process::getCommandCounter() const          {
+    return commandCounter.load();
+}
+int Process::getTotalCommands() const           { 
+    int total = 0;
+    for (const auto& cmd : commandList) {
+        total += cmd->countCommands();
+    }
+
+    return total;
+}
 int Process::getCpuCoreID() const               { return cpuCoreID.load(); }
 std::string Process::getCreationTime() const    { return creationTime; }
 std::vector<std::string>& Process::getLogs()    { return logs; }

@@ -19,13 +19,13 @@ ICommand::CommandType PrintCommand::getType() const {
 }
 
 void PrintCommand::execute(Process& process) {
+    process.incrementCommandCounter();
     if (varName.has_value()) {
         uint16_t val = process.getSymbolTable().get(varName.value());
         process.log(message + std::to_string(val));
     } else {
         process.log(message);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
 
 std::string PrintCommand::toString() const {

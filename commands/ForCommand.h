@@ -11,6 +11,7 @@ public:
     CommandType getType() const override;
     void execute(Process& process) override;
     std::string toString() const override;
+    int countCommands() const override;
 private:
     int count;
     std::vector<std::shared_ptr<ICommand>> instructions;

@@ -11,6 +11,8 @@ ICommand::CommandType SubtractCommand::getType() const {
 }
 
 void SubtractCommand::execute(Process& process) {
+    process.incrementCommandCounter();
+ 
     uint16_t val1 = resolve(operand1, process);
     uint16_t val2 = resolve(operand2, process);
     // Use int32 for subtraction before clamping to catch overflow correctly.

@@ -63,6 +63,12 @@ enum class Mode {
     SUBSCREEN
 };
 
+// To see how many executed instructions a command will represent
+struct GeneratedCommand {
+    shared_ptr<ICommand> command;
+    int instructionCount;
+};
+
 // Header
 void displayHeader() {
     cout << " _____ _____ _____ _____ _____ _____ __ __ \n";
@@ -205,58 +211,98 @@ std::pair<Operand, Operand> generateOperands() {
 }
 
 // Generate random commands for a process. For loops can be nested up to 3 times
-shared_ptr<ICommand> generateRandomCommand(const string& name, int depth) {
-    int maxType = (depth < 3) ? 6 : 5;
-    int type = getRandomInt(1, maxType); // 1: Print, 2: Declare, 3: Add, 4: Subtract, 5: Sleep
+GeneratedCommand generateRandomCommand(const string& name, int depth, int& remainingCommands) {
+    // Only allow nesting up to 3 times and allow FOR command if there is enough remaining commands for there to be instructions in the FOR
+    int maxType = (depth < 3 && remainingCommands > 2) ? 6 : 5;
+    int type = getRandomInt(1, maxType); // 1: Print, 2: Declare, 3: Add, 4: Subtract, 5: Sleep, 6: For
     switch (type) {
         case 1: {
             // PRINT: unless specified in the test case, the “msg” should always be “Hello world from <process_name>!”
             string msg = "Hello world from " + name + "!";
-            return make_shared<PrintCommand>(msg);
+            remainingCommands--;
+            return {make_shared<PrintCommand>(msg), 1};
         }
         case 2: {
             // DECLARE: random variable name, random initial value
             std::string varName = "var" + to_string(varId++);
             uint16_t initVal = static_cast<uint16_t>(getRandomInt(0, 1000));
-            return make_shared<DeclareCommand>(varName, initVal);
+            remainingCommands--;
+            return {make_shared<DeclareCommand>(varName, initVal), 1};
         }
         case 3: {
             // ADD: performs an addition operation: var1 = var2/value + var3/value
             auto [op1, op2] = generateOperands();
             std::string dest  = "var" + to_string(varId++);
-            return make_shared<AddCommand>(dest, op1, op2);
+            remainingCommands--;
+            return {make_shared<AddCommand>(dest, op1, op2), 1};
             
         }
         case 4: {
             // SUBTRACT: performs a subtraction operation: var1 = var2/value - var3/value
             auto [op1, op2] = generateOperands();
             std::string dest  = "var" + to_string(varId++);
-            return make_shared<SubtractCommand>(dest, op1, op2);
+            remainingCommands--;
+            return {make_shared<SubtractCommand>(dest, op1, op2), 1};
         }
         case 5: {
             // SLEEP: random sleep ticks between 100 and 1000
             uint8_t ticks = getRandomInt(100, 1000); // Random sleep ticks between 1 and 10
-            return make_shared<SleepCommand>(ticks);
+            remainingCommands--;
+            return {make_shared<SleepCommand>(ticks), 1};
         }
         case 6: {
-            // FOR: loop [1, 3] random commands for [1, 5] iterations (can be nested up to 3 times)
-            int count = getRandomInt(1, 5); // iterations
-            std::vector<std::shared_ptr<ICommand>> instructions;
-            for (int i = 0; i < getRandomInt(1, 3); i++) {
-                instructions.push_back(generateRandomCommand(name, depth + 1));
+            // FOR: loop [1, 3] random commands for [2, 5] iterations (can be nested up to 3 times) 
+            int before = remainingCommands;
+
+            // Try at most 20 times to generate a valid FOR loop within the max instruction count
+            for (int tries = 0; tries < 20; tries++) {
+                remainingCommands = before;
+                int maxBody = min(3, remainingCommands - 1); // Make sure it doesn't exceed the max number of commands
+                if (maxBody < 1) break;
+                int bodySize = getRandomInt(1, maxBody);
+                std::vector<std::shared_ptr<ICommand>> instructions;
+                int insCount = 0;
+                for (int i = 0; i < bodySize; i++) {
+                    GeneratedCommand cmd = generateRandomCommand(name, depth + 1, remainingCommands);
+                    instructions.push_back(cmd.command);
+                    insCount += cmd.instructionCount;
+                }
+                // Ensure that it does not exceed max instruction count
+                if (insCount == 0) continue;
+
+                int maxIter = min(5, (before - 1) / insCount);
+                int count;
+                if (maxIter < 2) {
+                    count = 1;
+                } else {
+                    count = getRandomInt(2, maxIter);
+                }
+                 
+                int totalIns = 1 + count * insCount;
+                if (totalIns <= before) {
+                    remainingCommands -= totalIns - insCount;
+                    return {make_shared<ForCommand>(count, instructions), totalIns};
+                }
             }
-            return make_shared<ForCommand>(count, instructions);
+            
+
+            // Not enough space for instructions, make a different command
+            remainingCommands = before;
+            return generateRandomCommand(name, depth, remainingCommands);
+            
         }
     }
     // this should never be reached
-    return make_shared<PrintCommand>("Error generating command");
+    return {make_shared<PrintCommand>("Error generating command"), 1};
 }
 
 // Randomly generates numCommands number of commands for a process
 shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
+    int remaining = numCommands;
     auto p = make_shared<Process>(pid, "screen", name, "0");
-    for (int i = 0; i < numCommands; i++) {
-        p->addCommand(generateRandomCommand(name, 0));
+    while (remaining > 0) {
+        GeneratedCommand cmd = generateRandomCommand(name, 0, remaining);
+        p->addCommand(cmd.command);
     }
     return p;
 }

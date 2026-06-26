@@ -13,9 +13,9 @@ ICommand::CommandType DeclareCommand::getType() const
 
 void DeclareCommand::execute(Process& process)
 {
+    process.incrementCommandCounter();
     // declare() only writes if the variable does not already exist.
     process.getSymbolTable().declare(varName, value);
-
     process.log("DECLARE " + varName + " = " + std::to_string(value));
 }
 
