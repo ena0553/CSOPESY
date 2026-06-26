@@ -39,6 +39,22 @@ void Worker::addProcess(std::shared_ptr<Process> process){
 void Worker::run(){
     while(running){
 
+        // Wake sleeping processes
+        {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            while (!sleepingProcesses.empty()) {
+                auto process = sleepingProcesses.top();
+
+                // not ready yet → stop immediately (important!)
+                if (tickCounter.load() < process->getWakeTick())
+                    break;
+
+                sleepingProcesses.pop();
+
+                process->setProcessState(Process::READY);
+                queue.push(process);
+            }
+        }
         std::shared_ptr<Process> process = nullptr;
         {
             std::lock_guard<std::mutex> lock(queueMutex);
@@ -52,63 +68,66 @@ void Worker::run(){
             std::this_thread::sleep_for(std::chrono::milliseconds(10)); // idle wait
             continue;
         }
-
-        if (process->getState() == Process::WAITING) {
-            if (tickCounter.load() >= process->getWakeTick()) {
-                std::lock_guard<std::mutex> lock(queueMutex);
-                process->setProcessState(Process::READY);
-            }
+        
+        {
+            std::lock_guard<std::mutex> lock(currentProcessMutex);
+            currentProcess = process; 
         }
-        if (process->getState() != Process::READY) {
+        {
             std::lock_guard<std::mutex> lock(queueMutex);
-            queue.push(process); // put back in queue
-            continue;
-        }
-        else {
-            std::lock_guard<std::mutex> lock(queueMutex);
-            currentProcess = process; // to check if core is busy
             process->setCpuCoreID(coreId);
             process->setProcessState(Process::RUNNING);
         }
+           
+        
 
 
         if(isRR){
-            long long now = tickCounter.load();
             long long usedQuantum = 0;
 
             while(!process->isFinished() && usedQuantum < quantumCycles) {
                 // If process is not allowed to run yet (delay-per-exec)
-                if (tickCounter.load() < process->getNextAvailableTick()) {
+                auto now = tickCounter.load();
+                if (now < process->getNextAvailableTick()) {
                     continue;
                 }
                 process->executeNextCommand();
                 usedQuantum++;
 
-                if(process->getState() == Process::WAITING){
-                    std::lock_guard<std::mutex> lock(queueMutex);
+                if(process->getState() == Process::WAITING) { // sleep command
                     if (process->isFinished())
-                    {
+                     {
+                        std::lock_guard<std::mutex> lock(currentProcessMutex);
                         currentProcess = nullptr;
                         break;
                     }
-                    queue.push(process); // put back in queue if waiting (sleeping)
-                    currentProcess = nullptr;
+
+                    {
+                        std::lock_guard<std::mutex> lock(sleepingProcessesMutex);
+                        sleepingProcesses.push(process); // push into sleeping queue
+                    }
+                    {
+                        std::lock_guard<std::mutex> lock(currentProcessMutex);
+                        currentProcess = nullptr;
+                    }
                     break;
                 }
-                process->setNextAvailableTick(tickCounter.load() + delay);
+                process->setNextAvailableTick(now + delay);
             }
 
+            // If a process is not yet finished and is not sleeping, put it back into the ready queue after its time slice
             if(!process->isFinished() && process->getState() != Process::WAITING){
-                std::lock_guard<std::mutex> lock(queueMutex);
+                std::lock_guard<std::mutex> lock1(queueMutex);
+                std::lock_guard<std::mutex> lock2(currentProcessMutex);
                 process->setProcessState(Process::READY);
-                queue.push(process);
+                queue.push(process); // push back into ready queue
                 currentProcess = nullptr;
             }
         }
 
         else{
             while(!process->isFinished()){
-                long long now = tickCounter.load();
+                auto now = tickCounter.load();
                 if (now < process->getNextAvailableTick()) {
                     continue; // wait until delay-per-exec is done
                 }
@@ -116,23 +135,28 @@ void Worker::run(){
                 process->executeNextCommand();
                 process->setNextAvailableTick(now + delay);
                 if (process->getState() == Process::WAITING) { // handle waiting (sleeping) processes
-                    std::lock_guard<std::mutex> lock(queueMutex);
                     if (process->isFinished())
                     {
+                        std::lock_guard<std::mutex> lock(currentProcessMutex);
                         currentProcess = nullptr;
                         break;
                     }
 
-                    queue.push(process); // push back into queue
-                    currentProcess = nullptr; // empty since current process is waiting
+                    {
+                        std::lock_guard<std::mutex> lock(sleepingProcessesMutex);
+                        sleepingProcesses.push(process); // push into sleeping queue
+                    }
+                    {
+                        std::lock_guard<std::mutex> lock(currentProcessMutex);
+                        currentProcess = nullptr;
+                    }
+                    
                     break; // exit the inner loop to check for other processes
                 }
             }
         }
 
         if (process->isFinished()) {
-            std::lock_guard<std::mutex> lock(queueMutex);
-
             if (process->getState() == Process::TERMINATED) {
                 continue;
             }
@@ -148,8 +172,11 @@ void Worker::run(){
                 std::lock_guard<std::mutex> lock(processListMutex);
                 processList.erase(remove(processList.begin(), processList.end(), process), processList.end());
             }
-
-            currentProcess = nullptr; // empty since current process is done
+            {
+                std::lock_guard<std::mutex> lock(currentProcessMutex);
+                currentProcess = nullptr; // empty since current process is done
+            }
+           
             
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); // simulate time slice
@@ -157,6 +184,6 @@ void Worker::run(){
 }
 
 std::shared_ptr<Process> Worker::getCurrentProcess() {
-    std::lock_guard<std::mutex> lock(queueMutex);
-    return currentProcess;
+    std::lock_guard<std::mutex> lock(currentProcessMutex);
+    return currentProcess;    
 }
