@@ -31,6 +31,10 @@ mutex processListMutex;
 vector<shared_ptr<Process>> processList;
 atomic<int> pidCounter = 1; // global PID counter unique PID assignment for processes
 
+// finished process list (completed strings vector)
+mutex finishedProcessListMutex;
+vector<shared_ptr<Process>> finishedProcessList;
+
 // global tick counter
 atomic<long long> tickCounter = 0;
 atomic<bool> cpuRunning = false;
@@ -99,15 +103,15 @@ void screen_ls(ProcessScheduler& scheduler) {
     }
 
     cout << "\nFinished processes:\n";
-    for (auto& p : processList) {
-        if (p->getState() == Process::TERMINATED) {
-            cout << left << setw(12) << p->getName()
-                << " " << p->getCreationTime()
-                << "   Finished"
-                << "   " << p->getTotalCommands()
-                << " / " << p->getTotalCommands()
-                << "\n";
-        }
+    // lock when reading finishedProcessList to avoid sync issues
+    lock_guard<mutex> lock(finishedProcessListMutex);
+    for (auto& p : finishedProcessList) {
+        cout << left << setw(12) << p->getName()
+            << " " << p->getCreationTime()
+            << "   Finished"
+            << "   " << p->getTotalCommands()
+            << " / " << p->getTotalCommands()
+            << "\n";
     }
     cout << "---------------------------------------\n";
 }
@@ -140,15 +144,15 @@ void report_util(ProcessScheduler& scheduler) {
     }
 
     outFile << "\nFinished processes:\n";
-    for (auto& p : processList) {
-        if (p->getState() == Process::TERMINATED) {
-            outFile << left << setw(12) << p->getName()
-                << " " << p->getCreationTime()
-                << "   Finished"
-                << "   " << p->getTotalCommands()
-                << " / " << p->getTotalCommands()
-                << "\n";
-        }
+    // lock when reading finishedProcessList to avoid sync issues
+    lock_guard<mutex> lock(finishedProcessListMutex);
+    for (auto& p : finishedProcessList) {
+        outFile << left << setw(12) << p->getName()
+            << " " << p->getCreationTime()
+            << "   Finished"
+            << "   " << p->getTotalCommands()
+            << " / " << p->getTotalCommands()
+            << "\n";
     }
     outFile << "---------------------------------------\n";
 }
@@ -563,6 +567,7 @@ int main() {
                  * for screen -r */
                 shared_ptr<Process> foundProcess = nullptr;
 
+                lock_guard<mutex> lock(processListMutex);
                 // look for target process in the list
                 for (shared_ptr<Process>& p : processList)
                 {

@@ -1,6 +1,10 @@
 #include "Worker.h"
 #include <iostream>
 extern std::atomic<long long> tickCounter;
+extern vector<shared_ptr<Process>> processList;
+extern mutex processListMutex;
+extern vector<shared_ptr<Process>> finishedProcessList;
+extern mutex finishedProcessListMutex;
 
 Worker::Worker(int coreId, int quantumCycles, bool isRR, int delay) : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR), delay(delay) {}
 
@@ -81,6 +85,13 @@ void Worker::run(){
                 }
 
                 if(process->getState() == Process::WAITING){
+                    
+                    if (process->isFinished())
+                    {
+                        currentProcess = nullptr;
+                        break;
+                    }
+
                     std::lock_guard<std::mutex> lock(queueMutex);
                     sleepingProcesses.push_back(process);
                     currentProcess = nullptr;
@@ -108,6 +119,13 @@ void Worker::run(){
                 }
 
                 if (process->getState() == Process::WAITING) { // handle waiting (sleeping) processes
+
+                    if (process->isFinished())
+                    {
+                        currentProcess = nullptr;
+                        break;
+                    }
+
                     std::lock_guard<std::mutex> lock(queueMutex);
                     sleepingProcesses.push_back(process);
                     currentProcess = nullptr; // empty since current process is waiting
@@ -118,7 +136,23 @@ void Worker::run(){
 
         if (process->isFinished()) {
             std::lock_guard<std::mutex> lock(queueMutex);
-            process->setProcessState(Process::TERMINATED); // make sure process ends   
+
+            if (process->getState() == Process::TERMINATED) {
+                continue;
+            }
+            process->setProcessState(Process::TERMINATED); // make sure process ends
+
+            // add to finished vector
+            {
+                std::lock_guard<std::mutex> lock(finishedProcessListMutex);
+                finishedProcessList.push_back(process);
+            }
+            
+            {
+                std::lock_guard<std::mutex> lock(processListMutex);
+                processList.erase(remove(processList.begin(), processList.end(), process), processList.end());
+            }
+
             currentProcess = nullptr; // empty since current process is done
             
         }
