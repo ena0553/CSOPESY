@@ -83,7 +83,6 @@ void displayHeader() {
 
 // screen -ls display
 void screen_ls(ProcessScheduler& scheduler) {
-
     int used = scheduler.getBusyCores();
     int totalCores = scheduler.getnumCores();
     
@@ -106,18 +105,19 @@ void screen_ls(ProcessScheduler& scheduler) {
             }
         }
     }
-
     cout << "\nFinished processes:\n";
-    // lock when reading finishedProcessList to avoid sync issues
-    lock_guard<mutex> lock(finishedProcessListMutex);
-    for (auto& p : finishedProcessList) {
-        cout << left << setw(12) << p->getName()
-            << " " << p->getCreationTime()
-            << "   Finished"
-            << "   " << p->getTotalCommands()
-            << " / " << p->getTotalCommands()
-            << "\n";
+    { // lock when reading finishedProcessList to avoid sync issues
+        lock_guard<mutex> lock(finishedProcessListMutex);
+        for (auto& p : finishedProcessList) {
+            cout << left << setw(12) << p->getName()
+                << " " << p->getCreationTime()
+                << "   Finished"
+                << "   " << p->getTotalCommands()
+                << " / " << p->getTotalCommands()
+                << "\n";
+        }
     }
+    
     cout << "---------------------------------------\n";
 }
 

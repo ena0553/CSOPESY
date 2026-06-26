@@ -180,7 +180,6 @@ void Worker::run(){
            
             
         }
-        this_thread::sleep_for(chrono::milliseconds(10)); // simulate time slice
     }
 }
 
