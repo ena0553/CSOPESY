@@ -32,7 +32,6 @@ class Worker{
         int delay;
         
         std::queue<std::shared_ptr<Process>> queue; // core's respective queue
-        std::vector<std::shared_ptr<Process>> sleepingProcesses; // completed processes for this core
         std::mutex queueMutex;                      // mutex to prevent race condition
         std::atomic<bool>running = false;
         std::thread coreThread;                     // core's respective thread

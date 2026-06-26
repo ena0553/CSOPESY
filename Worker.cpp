@@ -39,37 +39,36 @@ void Worker::addProcess(std::shared_ptr<Process> process){
 void Worker::run(){
     while(running){
 
-        // Wake sleeping processes
-        {
-            std::lock_guard<std::mutex> lock(queueMutex);
-            for (auto it = sleepingProcesses.begin(); it != sleepingProcesses.end(); ) {
-                auto& process = *it;
-                if (tickCounter.load() >= process->getWakeTick()) {
-                    it = sleepingProcesses.erase(it); // remove from sleepingProcesses
-                    process->setProcessState(Process::READY);
-                    queue.push(process);
-                } else {
-                    ++it;
-                }
-            }
-        }
         std::shared_ptr<Process> process = nullptr;
         {
             std::lock_guard<std::mutex> lock(queueMutex);
             if(!queue.empty()){
                 process = queue.front();
                 queue.pop();
-                if (process) {
-                    currentProcess = process; // to check if core is busy
-                    process->setCpuCoreID(coreId);
-                    process->setProcessState(Process::RUNNING);
-                }
             }
         }
 
         if(!process){
             std::this_thread::sleep_for(std::chrono::milliseconds(10)); // idle wait
             continue;
+        }
+
+        if (process->getState() == Process::WAITING) {
+            if (tickCounter.load() >= process->getWakeTick()) {
+                std::lock_guard<std::mutex> lock(queueMutex);
+                process->setProcessState(Process::READY);
+            }
+        }
+        if (process->getState() != Process::READY) {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            queue.push(process); // put back in queue
+            continue;
+        }
+        else {
+            std::lock_guard<std::mutex> lock(queueMutex);
+            currentProcess = process; // to check if core is busy
+            process->setCpuCoreID(coreId);
+            process->setProcessState(Process::RUNNING);
         }
 
 
@@ -92,7 +91,7 @@ void Worker::run(){
                         currentProcess = nullptr;
                         break;
                     }
-                    sleepingProcesses.push_back(process);
+                    queue.push(process); // put back in queue if waiting (sleeping)
                     currentProcess = nullptr;
                     break;
                 }
@@ -124,7 +123,7 @@ void Worker::run(){
                         break;
                     }
 
-                    sleepingProcesses.push_back(process);
+                    queue.push(process); // push back into queue
                     currentProcess = nullptr; // empty since current process is waiting
                     break; // exit the inner loop to check for other processes
                 }
