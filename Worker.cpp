@@ -2,7 +2,8 @@
 #include <iostream>
 #include <algorithm>
 
-extern std::atomic<long long> tickCounter;
+
+extern atomic<long long> tickCounter;
 extern vector<shared_ptr<Process>> processList;
 extern mutex processListMutex;
 extern vector<shared_ptr<Process>> finishedProcessList;
@@ -16,7 +17,7 @@ Worker::~Worker() { stop(); }
 void Worker::start(){
     if (running) return;
     running = true;
-    coreThread = std::thread(&Worker::run, this);
+    coreThread = thread(&Worker::run, this);
 }
 
 // stop the thread
@@ -29,8 +30,8 @@ void Worker::stop(){
 }
 
 // add a process to the Worker's RQ
-void Worker::addProcess(std::shared_ptr<Process> process){
-    std::lock_guard<std::mutex> lock(queueMutex);
+void Worker::addProcess(shared_ptr<Process> process){
+    lock_guard<mutex> lock(queueMutex);
     process->setProcessState(Process::READY);
     queue.push(process);
 }
@@ -41,7 +42,7 @@ void Worker::run(){
 
         // Wake sleeping processes
         {
-            std::lock_guard<std::mutex> lock(queueMutex);
+            lock_guard<mutex> lock(queueMutex);
             while (!sleepingProcesses.empty()) {
                 auto process = sleepingProcesses.top();
 
@@ -55,9 +56,9 @@ void Worker::run(){
                 queue.push(process);
             }
         }
-        std::shared_ptr<Process> process = nullptr;
+        shared_ptr<Process> process = nullptr;
         {
-            std::lock_guard<std::mutex> lock(queueMutex);
+            lock_guard<mutex> lock(queueMutex);
             if(!queue.empty()){
                 process = queue.front();
                 queue.pop();
@@ -65,16 +66,16 @@ void Worker::run(){
         }
 
         if(!process){
-            std::this_thread::sleep_for(std::chrono::milliseconds(10)); // idle wait
+            this_thread::sleep_for(chrono::milliseconds(10)); // idle wait
             continue;
         }
         
         {
-            std::lock_guard<std::mutex> lock(currentProcessMutex);
+            lock_guard<mutex> lock(currentProcessMutex);
             currentProcess = process; 
         }
         {
-            std::lock_guard<std::mutex> lock(queueMutex);
+            lock_guard<mutex> lock(queueMutex);
             process->setCpuCoreID(coreId);
             process->setProcessState(Process::RUNNING);
         }
@@ -97,17 +98,17 @@ void Worker::run(){
                 if(process->getState() == Process::WAITING) { // sleep command
                     if (process->isFinished())
                      {
-                        std::lock_guard<std::mutex> lock(currentProcessMutex);
+                        lock_guard<mutex> lock(currentProcessMutex);
                         currentProcess = nullptr;
                         break;
                     }
 
                     {
-                        std::lock_guard<std::mutex> lock(sleepingProcessesMutex);
+                        lock_guard<mutex> lock(sleepingProcessesMutex);
                         sleepingProcesses.push(process); // push into sleeping queue
                     }
                     {
-                        std::lock_guard<std::mutex> lock(currentProcessMutex);
+                        lock_guard<mutex> lock(currentProcessMutex);
                         currentProcess = nullptr;
                     }
                     break;
@@ -117,8 +118,8 @@ void Worker::run(){
 
             // If a process is not yet finished and is not sleeping, put it back into the ready queue after its time slice
             if(!process->isFinished() && process->getState() != Process::WAITING){
-                std::lock_guard<std::mutex> lock1(queueMutex);
-                std::lock_guard<std::mutex> lock2(currentProcessMutex);
+                lock_guard<mutex> lock1(queueMutex);
+                lock_guard<mutex> lock2(currentProcessMutex);
                 process->setProcessState(Process::READY);
                 queue.push(process); // push back into ready queue
                 currentProcess = nullptr;
@@ -137,17 +138,17 @@ void Worker::run(){
                 if (process->getState() == Process::WAITING) { // handle waiting (sleeping) processes
                     if (process->isFinished())
                     {
-                        std::lock_guard<std::mutex> lock(currentProcessMutex);
+                        lock_guard<mutex> lock(currentProcessMutex);
                         currentProcess = nullptr;
                         break;
                     }
 
                     {
-                        std::lock_guard<std::mutex> lock(sleepingProcessesMutex);
+                        lock_guard<mutex> lock(sleepingProcessesMutex);
                         sleepingProcesses.push(process); // push into sleeping queue
                     }
                     {
-                        std::lock_guard<std::mutex> lock(currentProcessMutex);
+                        lock_guard<mutex> lock(currentProcessMutex);
                         currentProcess = nullptr;
                     }
                     
@@ -164,26 +165,26 @@ void Worker::run(){
 
             // add to finished vector
             {
-                std::lock_guard<std::mutex> lock(finishedProcessListMutex);
+                lock_guard<mutex> lock(finishedProcessListMutex);
                 finishedProcessList.push_back(process);
             }
             
             {
-                std::lock_guard<std::mutex> lock(processListMutex);
+                lock_guard<mutex> lock(processListMutex);
                 processList.erase(remove(processList.begin(), processList.end(), process), processList.end());
             }
             {
-                std::lock_guard<std::mutex> lock(currentProcessMutex);
+                lock_guard<mutex> lock(currentProcessMutex);
                 currentProcess = nullptr; // empty since current process is done
             }
            
             
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // simulate time slice
+        this_thread::sleep_for(chrono::milliseconds(10)); // simulate time slice
     }
 }
 
-std::shared_ptr<Process> Worker::getCurrentProcess() {
-    std::lock_guard<std::mutex> lock(currentProcessMutex);
+shared_ptr<Process> Worker::getCurrentProcess() {
+    lock_guard<mutex> lock(currentProcessMutex);
     return currentProcess;    
 }
