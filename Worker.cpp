@@ -1,5 +1,7 @@
 #include "Worker.h"
 #include <iostream>
+#include <algorithm>
+
 extern std::atomic<long long> tickCounter;
 extern vector<shared_ptr<Process>> processList;
 extern mutex processListMutex;

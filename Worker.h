@@ -5,7 +5,6 @@
 #include <atomic>
 #include <memory>
 #include "Process.h"
-#include <atomic>
 
 using namespace std;
 
