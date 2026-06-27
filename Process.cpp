@@ -49,7 +49,7 @@ void Process::addCommand(std::shared_ptr<ICommand> command) {
 
 void Process::executeNextCommand() {
     if (isFinished()) return;
-    commandList[commandIndex]->execute(*this);  // runs PrintCommand::execute -> calls this->log()
+    commandList[commandIndex]->execute(*this);  
     commandIndex++;
 }
 
@@ -61,7 +61,6 @@ bool Process::isFinished() const {
 void Process::log(const std::string& message) {
     std::string ts = getCurrentTimestamp();
 
-    // write to the process's dedicated text file (HW requirement)
     std::string log = ts + " Core:" + std::to_string(cpuCoreID) 
 	+ " \"" + message + "\"\n";
 
@@ -89,7 +88,7 @@ Process::ProcessState Process::getState() const { return currentState.load(); }
 int Process::getCommandCounter() const          {
     return commandCounter.load();
 }
-int Process::getTotalCommands() const           { 
+int Process::getTotalCommands() const { 
     int total = 0;
     for (const auto& cmd : commandList) {
         total += cmd->countCommands();

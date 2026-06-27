@@ -11,6 +11,7 @@ class ICommand {
             IO,
             MEMORY,
             FILE,
+            CONTROL
         };
 
         virtual ~ICommand() = default; // virtual destructor for proper cleanup

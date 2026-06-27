@@ -8,7 +8,7 @@ DeclareCommand::DeclareCommand(const std::string& varName, uint16_t value)
 
 ICommand::CommandType DeclareCommand::getType() const
 {
-    return CommandType::COMPUTE;
+    return CommandType::MEMORY;
 }
 
 void DeclareCommand::execute(Process& process)

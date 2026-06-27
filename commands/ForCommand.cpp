@@ -7,7 +7,7 @@ ForCommand::ForCommand(int count, std::vector<std::shared_ptr<ICommand>> instruc
 }
 
 ICommand::CommandType ForCommand::getType() const {
-    return CommandType::COMPUTE;
+    return CommandType::CONTROL;
 }
 
 void ForCommand::execute(Process& process) {
