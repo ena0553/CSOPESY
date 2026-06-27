@@ -2,10 +2,10 @@
 OPESY master repo
 
 Members:
-Aragon, Enrique
-Ching, Justin
-Felipe, Christian
-Kaw, Kellie
+- Aragon, Enrique
+- Ching, Justin
+- Felipe, Christian
+- Kaw, Kellie
 
 main() function is located in main.cpp.
 
