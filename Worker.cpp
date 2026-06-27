@@ -84,16 +84,22 @@ void Worker::run(){
 
 
         if(isRR){
-            long long usedQuantum = 0;
+            long long quantumStart = tickCounter.load();
 
-            while(!process->isFinished() && usedQuantum < quantumCycles) {
+            while(!process->isFinished()) {
                 // If process is not allowed to run yet (delay-per-exec)
                 auto now = tickCounter.load();
+
+                // Quantum expired
+                if (now - quantumStart >= quantumCycles) {
+                    break;
+                }
+
+                // Busy wait (delay-per-exec)
                 if (now < process->getNextAvailableTick()) {
                     continue;
                 }
                 process->executeNextCommand();
-                usedQuantum++;
 
                 if(process->getState() == Process::WAITING) { // sleep command
                     if (process->isFinished())
