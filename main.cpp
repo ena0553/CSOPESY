@@ -452,6 +452,7 @@ int main() {
             tickThread = thread([](){
                 while(cpuRunning){
                     tickCounter++;
+                    this_thread::sleep_for(chrono::milliseconds(100));
                 }
             });
 
