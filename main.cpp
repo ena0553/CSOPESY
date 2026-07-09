@@ -56,6 +56,9 @@ struct Config
     long long minIns; // range 1 - 2^32 (4294967296)
     long long maxIns; // range 1 - 2^32 (4294967296)
     long long delayPerExec; // range 0 - 2^32 (4294967296)
+    long long maxOverallMem; // range not specified
+    long long memPerFrame; // range not specified
+    long long memPerProc; // range not specified 
 };
 
 enum class Mode {
@@ -355,6 +358,9 @@ void createConfigFile()
     file << "min-ins 1000\n";
     file << "max-ins 2000\n";
     file << "delay-per-exec 0\n";
+    file << "max-overall-mem 16384\n";
+    file << "mem-per-frame 16\n";
+    file << "mem-per-proc 4096\n";
 
     file.close();
 }
@@ -392,6 +398,9 @@ bool initialize(Config& config)
         else if (line == "min-ins") { file >> config.minIns; }
         else if (line == "max-ins") { file >> config.maxIns; }
         else if (line == "delay-per-exec") { file >> config.delayPerExec; }
+        else if (line == "max-overall-mem") { file >> config.maxOverallMem; }
+        else if (line == "mem-per-frame") { file >> config.memPerFrame; }
+        else if (line == "mem-per-proc") { file >> config.memPerProc; }
     }
 
     const long long max = 4294967296; // 2^32
