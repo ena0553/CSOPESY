@@ -299,9 +299,9 @@ GeneratedCommand generateRandomCommand(const string& name, int depth, int& remai
 }
 
 // Randomly generates numCommands number of commands for a process
-shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands) {
+shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands, long long memoryUsage = 0) {
     int remaining = numCommands;
-    auto p = make_shared<Process>(pid, "screen", name, "0");
+    auto p = make_shared<Process>(pid, "screen", name, memoryUsage);
     while (remaining > 0) {
         GeneratedCommand cmd = generateRandomCommand(name, 0, remaining);
         p->addCommand(cmd.command);
@@ -326,7 +326,7 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
         while (generating) {
             int numCommands = getRandomInt(config.minIns, config.maxIns);
             string name = string("process") + (pidCounter < 10 ? "0" : "") + to_string(pidCounter);
-            auto newProcess = makeProcess(pidCounter++, name, numCommands);
+            auto newProcess = makeProcess(pidCounter++, name, numCommands, config.memPerProc);
             {
                 lock_guard<mutex> lock(processListMutex);
                 processList.push_back(newProcess);
@@ -587,7 +587,7 @@ int main() {
                 /* new process creation */
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
 
-                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands);
+                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, config.memPerProc);
                 {   // lock when adding a new process
                     lock_guard<mutex> lock(processListMutex);
                     processList.push_back(newProcess);

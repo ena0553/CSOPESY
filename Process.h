@@ -11,7 +11,7 @@
 class Process
 {
 public:
-    Process(int pid, const std::string& type, const std::string& name, const std::string& memoryUsage); // constructor
+    Process(int pid, const std::string& type, const std::string& name, long long memoryUsage); // constructor
     ~Process(); // destructor to close log file
 
     enum ProcessState // process's state
@@ -39,7 +39,7 @@ public:
     int getPID() const;
     std::string getType() const;
     std::string getName() const;
-    std::string getMemoryUsage() const;
+    long long getMemoryUsage() const;
     ProcessState getState() const;
     int getCommandCounter() const;    // number of commands executed so far
     int getTotalCommands() const;     // total number of commands
@@ -58,7 +58,7 @@ private:
     int pid;                    // process ID
     std::string type;           // process type (e.g. "screen")
     std::string name;           // process name
-    std::string memoryUsage;    // memory usage label
+    long long memoryUsage;    // memory usage
     std::string creationTime;   // timestamp captured at construction (for screen -ls display)
 
     typedef std::vector<std::shared_ptr<ICommand>> CommandList;

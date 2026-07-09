@@ -21,7 +21,7 @@ static std::string getCurrentTimestamp() {
 }
 
 // Constructor
-Process::Process(int pid, const std::string& type, const std::string& name, const std::string& memoryUsage)
+Process::Process(int pid, const std::string& type, const std::string& name, long long memoryUsage)
     : pid{ pid }, 
     type{ type }, 
     name{ name }, 
@@ -83,7 +83,7 @@ void Process::incrementCommandCounter() {
 int Process::getPID() const                     { return pid; }
 std::string Process::getType() const            { return type; }
 std::string Process::getName() const            { return name; }
-std::string Process::getMemoryUsage() const     { return memoryUsage; }
+long long Process::getMemoryUsage() const     { return memoryUsage; }
 Process::ProcessState Process::getState() const { return currentState.load(); }
 int Process::getCommandCounter() const          {
     return commandCounter.load();
