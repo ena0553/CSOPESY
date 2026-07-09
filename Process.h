@@ -50,13 +50,14 @@ public:
     long long getNextAvailableTick() const;
     SymbolTable& getSymbolTable(); // access this process's variable store
     bool isInMemory() const; // check if the process is in memory
-
+    int getStartFrame() const; // get the starting frame index
 
     // --- Setters ---
     void setCpuCoreID(int coreID);
     void setWakeTick(long long tick); // set the remaining sleep ticks
     void setNextAvailableTick(long long tick);
     void setInMemory(bool inMemory); // set whether the process is in memory or not
+    void setStartFrame(int frame); // set the starting frame index
 private:
     int pid;                    // process ID
     std::string type;           // process type (e.g. "screen")

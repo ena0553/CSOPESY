@@ -102,6 +102,7 @@ std::vector<std::string>& Process::getLogs()    { return logs; }
 long long Process::getWakeTick() const               { return wakeTick.load(); }
 long long Process::getNextAvailableTick() const { return nextAvailableTick; }
 bool Process::isInMemory() const { return inMemory; }
+int Process::getStartFrame() const { return startFrame; }
 
 // Setters
 void Process::setCpuCoreID(int coreID) {
@@ -118,4 +119,7 @@ SymbolTable& Process::getSymbolTable() {
 }
 void Process::setInMemory(bool inMemory) {
     this->inMemory = inMemory;
+}
+void Process::setStartFrame(int frame) {
+    this->startFrame = frame;
 }
