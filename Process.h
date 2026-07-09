@@ -49,16 +49,21 @@ public:
     long long getWakeTick() const; // get the remaining sleep ticks
     long long getNextAvailableTick() const;
     SymbolTable& getSymbolTable(); // access this process's variable store
+    bool isInMemory() const; // check if the process is in memory
+
 
     // --- Setters ---
     void setCpuCoreID(int coreID);
     void setWakeTick(long long tick); // set the remaining sleep ticks
     void setNextAvailableTick(long long tick);
+    void setInMemory(bool inMemory); // set whether the process is in memory or not
 private:
     int pid;                    // process ID
     std::string type;           // process type (e.g. "screen")
     std::string name;           // process name
-    long long memoryUsage;    // memory usage
+    long long memoryUsage;      // memory usage
+    bool inMemory;              // whether the process is in memory or not
+    int startFrame = -1;        // starting frame index in memory
     std::string creationTime;   // timestamp captured at construction (for screen -ls display)
 
     typedef std::vector<std::shared_ptr<ICommand>> CommandList;
