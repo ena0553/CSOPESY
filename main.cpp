@@ -247,8 +247,8 @@ GeneratedCommand generateRandomCommand(const string& name, int depth, int& remai
             return {make_shared<SubtractCommand>(dest, op1, op2), 1};
         }
         case 5: {
-            // SLEEP: random sleep ticks between 100 and 1000
-            uint8_t ticks = getRandomInt(100, 1000); // Random sleep ticks between 1 and 10
+            // SLEEP: random sleep ticks between 1 and 10
+            uint8_t ticks = getRandomInt(1, 10); // Random sleep ticks between 1 and 10
             remainingCommands--;
             return {make_shared<SleepCommand>(ticks), 1};
         }
