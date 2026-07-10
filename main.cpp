@@ -10,6 +10,7 @@
 
 #include "ProcessScheduler.h"
 #include "Process.h"
+#include "MemoryManager.h"
 #include "commands/PrintCommand.h"
 #include "commands/SleepCommand.h"
 #include "commands/SubtractCommand.h"
@@ -444,6 +445,7 @@ int main() {
 
     Config config; // config structure for config file variables
     unique_ptr<ProcessScheduler> scheduler = nullptr; // pointer to be filled later in initialize
+    unique_ptr<MemoryManager> manager = nullptr; // pointer to be filled later in initialize
 
     unordered_map<string, function<void()>> commandMap;
 
@@ -452,10 +454,11 @@ int main() {
     string screen_r_process; // process name for screen -r
     shared_ptr<Process> activeProcessInput = nullptr; // the actual process to be occupied for screen commands
 
-    commandMap["initialize"] = [&config, &scheduler]() {
+    commandMap["initialize"] = [&config, &scheduler, &manager]() {
         if (initialize(config)) {
             scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec);
             scheduler->startScheduler();
+            manager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, config.memPerProc);
 
             cpuRunning = true;
             tickThread = thread([](){
