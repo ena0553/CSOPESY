@@ -444,6 +444,7 @@ int main() {
 
     Config config; // config structure for config file variables
     unique_ptr<ProcessScheduler> scheduler = nullptr; // pointer to be filled later in initialize
+    unique_ptr<MemoryManager> memManager = nullptr;
 
     unordered_map<string, function<void()>> commandMap;
 
@@ -452,9 +453,14 @@ int main() {
     string screen_r_process; // process name for screen -r
     shared_ptr<Process> activeProcessInput = nullptr; // the actual process to be occupied for screen commands
 
-    commandMap["initialize"] = [&config, &scheduler]() {
+    commandMap["initialize"] = [&config, &scheduler, &memManager]() {
         if (initialize(config)) {
-            scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec, config.maxOverallMem, config.memPerFrame, config.memPerProc);
+            // create the memory manager
+            memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, config.memPerProc);
+
+            // create the scheduler
+            scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec, memManager.get());
+            
             scheduler->startScheduler();
 
             cpuRunning = true;
@@ -535,6 +541,12 @@ int main() {
         cout << "  help                - Show this help message\n";
         cout << "  exit                - Exit the program\n";
         };
+
+    // this is just a quick command to test memory state printing
+    commandMap["mem-status"] = [&memManager]() {
+        cout << "Processes in memory: " << memManager->getProcessInMemory() << endl;
+        memManager->printMemoryState();
+    };
 
     bool running = true;
     commandMap["exit"] = [&running, &scheduler]() {

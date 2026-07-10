@@ -9,7 +9,8 @@ extern mutex processListMutex;
 extern vector<shared_ptr<Process>> finishedProcessList;
 extern mutex finishedProcessListMutex;
 
-Worker::Worker(int coreId, int quantumCycles, bool isRR, int delay) : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR), delay(delay) {}
+Worker::Worker(int coreId, int quantumCycles, bool isRR, int delay, MemoryManager* memManager) 
+    : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR), delay(delay), memManager(memManager) {}
 
 Worker::~Worker() { stop(); }
 
@@ -70,6 +71,18 @@ void Worker::run(){
             continue;
         }
         
+        // check if the process is in memory, if not, attempt to allocate it
+        if(!process->isInMemory()){
+            bool allocated = memManager->allocate(process.get());
+            if(!allocated){
+                lock_guard<mutex> lock(queueMutex);
+                // push back to the tail of the RQ if allocation failed
+                process->setProcessState(Process::READY);
+                queue.push(process);
+                continue;
+            }
+        }
+
         {
             lock_guard<mutex> lock(currentProcessMutex);
             currentProcess = process; 
@@ -168,6 +181,7 @@ void Worker::run(){
                 continue;
             }
             process->setProcessState(Process::TERMINATED); // make sure process ends
+            memManager->deallocate(process.get());  // deallocate when the process is done
 
             // add to finished vector
             {

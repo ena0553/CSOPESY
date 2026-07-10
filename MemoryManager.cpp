@@ -16,6 +16,8 @@ MemoryManager::MemoryManager(long long totalMemory, long long frameSize, long lo
 }
 
 bool MemoryManager::allocate(Process* process) {
+    std::lock_guard<std::mutex> lock(memMutex);
+    if (framesPerProcess > memory.size()) return false;
     for (size_t i = 0; i <= memory.size() - framesPerProcess; ++i) {
         bool canAllocate = true;
         for (size_t j = 0; j < framesPerProcess; ++j) {
@@ -38,6 +40,7 @@ bool MemoryManager::allocate(Process* process) {
 }
 
 void MemoryManager::deallocate(Process* process) {
+    std::lock_guard<std::mutex> lock(memMutex);
     int start = process->getStartFrame();
 
     if (start == -1) {
@@ -56,6 +59,7 @@ void MemoryManager::deallocate(Process* process) {
 }
 
 int MemoryManager::getProcessInMemory() const {
+    std::lock_guard<std::mutex> lock(memMutex);
     int count = 0;
     for (const auto& block : memory) {
         if (!block.isValid && block.process != nullptr) {
@@ -66,6 +70,7 @@ int MemoryManager::getProcessInMemory() const {
 }
 
 long long MemoryManager::getExternalFragmentation() const {
+    std::lock_guard<std::mutex> lock(memMutex);
     size_t currentRun = 0;
     size_t fragmentedFrames = 0;
 
@@ -89,6 +94,7 @@ long long MemoryManager::getExternalFragmentation() const {
 }
 
 void MemoryManager::printMemoryState() const {
+    std::lock_guard<std::mutex> lock(memMutex);
     std::cout << "---end--- = " << totalMemory << "\n\n";
 
     for (size_t i = 0; i < memory.size(); ++i) {

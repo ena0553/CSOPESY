@@ -2,23 +2,21 @@
 #include <iostream>
 
 //makes a unique Worker for each core
-ProcessScheduler::ProcessScheduler(int cores, string schedulerType, int quantumCycles, int delayPerExec, int overallMemory, int memPerFrame, int memPerProc)
-	: numCores{ cores }, schedulerType{ schedulerType }, quantumCycles{ quantumCycles }, delay{ delayPerExec }, overallMemory{ overallMemory }, memPerFrame{ memPerFrame }, memPerProc{ memPerProc } {
+ProcessScheduler::ProcessScheduler(int cores, string schedulerType, int quantumCycles, int delayPerExec, MemoryManager* memManager)
+	: numCores{ cores }, schedulerType{ schedulerType }, quantumCycles{ quantumCycles }, delay{ delayPerExec }, memManager{memManager} {
 	
 	bool isRR = true;
 	if (schedulerType == "rr"){
 		for (int i = 0 ; i < cores ; i++){
-			workers.push_back(std::make_unique<Worker>(i, quantumCycles, isRR, delay));
+			workers.push_back(std::make_unique<Worker>(i, quantumCycles, isRR, delay, memManager));
 		}
 	}
 
 	else{
 		for (int i = 0 ; i < cores ; i++){
-			workers.push_back(std::make_unique<Worker>(i, quantumCycles, !isRR, delay));
+			workers.push_back(std::make_unique<Worker>(i, quantumCycles, !isRR, delay, memManager));
 		}
 	}
-
-	memoryManager = std::make_unique<MemoryManager>(overallMemory, memPerFrame, memPerProc);
 
 }
 

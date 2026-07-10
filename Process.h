@@ -63,7 +63,7 @@ private:
     std::string type;           // process type (e.g. "screen")
     std::string name;           // process name
     long long memoryUsage;      // memory usage
-    bool inMemory;              // whether the process is in memory or not
+    bool inMemory = false;              // whether the process is in memory or not
     int startFrame = -1;        // starting frame index in memory
     std::string creationTime;   // timestamp captured at construction (for screen -ls display)
 

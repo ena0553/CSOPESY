@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <memory>
+#include <mutex>
 
 class Process; // Forward declaration of Process class
 
@@ -18,7 +19,10 @@ class MemoryManager {
         long long framesPerProcess; // Number of frames allocated per process
         long long memPerProc;
         long long totalFrames; // Total number of frames in memory
-    public:
+        
+        mutable std::mutex memMutex;
+
+        public:
         MemoryManager(long long totalMemory, long long frameSize, long long memPerProc);
         bool allocate(Process* process); // Allocate memory for a process
         void deallocate(Process* process); // Deallocate memory for a process

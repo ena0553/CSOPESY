@@ -6,12 +6,13 @@
 #include <memory>
 
 #include "Process.h"
+#include "MemoryManager.h"
 
 using namespace std;
 
 class Worker{
     public:
-        Worker(int coreId, int quantumCycles, bool isRR, int delay);
+        Worker(int coreId, int quantumCycles, bool isRR, int delay, MemoryManager* memManager);
         ~Worker();
 
         void start();
@@ -42,6 +43,8 @@ class Worker{
         bool isRR;
         int delay;
         
+        MemoryManager* memManager;
+
         std::queue<std::shared_ptr<Process>> queue; // core's respective ready queue
         std::priority_queue<
             std::shared_ptr<Process>,
@@ -54,5 +57,7 @@ class Worker{
         std::shared_ptr<Process> currentProcess = nullptr; // current process running on this core
         std::mutex queueMutex;                      // mutex to prevent race condition
         std::mutex currentProcessMutex;     
-        std::mutex sleepingProcessesMutex;        
+        std::mutex sleepingProcessesMutex;    
+        
+        
 };
