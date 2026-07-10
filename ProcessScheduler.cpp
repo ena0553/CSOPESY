@@ -2,8 +2,8 @@
 #include <iostream>
 
 //makes a unique Worker for each core
-ProcessScheduler::ProcessScheduler(int cores, string schedulerType, int quantumCycles, int delayPerExec)	
-	: numCores{ cores }, schedulerType { schedulerType }, quantumCycles { quantumCycles }, delay { delayPerExec } {
+ProcessScheduler::ProcessScheduler(int cores, string schedulerType, int quantumCycles, int delayPerExec, int overallMemory, int memPerFrame, int memPerProc)
+	: numCores{ cores }, schedulerType{ schedulerType }, quantumCycles{ quantumCycles }, delay{ delayPerExec }, overallMemory{ overallMemory }, memPerFrame{ memPerFrame }, memPerProc{ memPerProc } {
 	
 	bool isRR = true;
 	if (schedulerType == "rr"){
@@ -17,8 +17,9 @@ ProcessScheduler::ProcessScheduler(int cores, string schedulerType, int quantumC
 			workers.push_back(std::make_unique<Worker>(i, quantumCycles, !isRR, delay));
 		}
 	}
-	
-	
+
+	memoryManager = std::make_unique<MemoryManager>(overallMemory, memPerFrame, memPerProc);
+
 }
 
 //add process and set it to ready
