@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <iomanip>
 #include <random>
+#include <chrono>
 
 #include "ProcessScheduler.h"
 #include "Process.h"
@@ -319,7 +320,6 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
     cout << "Generating processes..." << endl;
     generating = true;
     processesCreated = 0;
-    
 
     generatorThread = std::thread([&scheduler, config]() {
         int coreID = 0;
@@ -464,10 +464,15 @@ int main() {
             scheduler->startScheduler();
 
             cpuRunning = true;
-            tickThread = thread([](){
+            tickThread = thread([&config, &memManager](){
                 while(cpuRunning){
                     tickCounter++;
                     this_thread::sleep_for(chrono::milliseconds(100));
+
+                    if (tickCounter % config.quantumCycles == 0)
+                    {
+                        memManager->printToFile(tickCounter.load());
+                    }
                 }
             });
 
@@ -541,12 +546,6 @@ int main() {
         cout << "  help                - Show this help message\n";
         cout << "  exit                - Exit the program\n";
         };
-
-    // this is just a quick command to test memory state printing
-    commandMap["mem-status"] = [&memManager]() {
-        cout << "Processes in memory: " << memManager->getProcessInMemory() << endl;
-        memManager->printMemoryState();
-    };
 
     bool running = true;
     commandMap["exit"] = [&running, &scheduler]() {

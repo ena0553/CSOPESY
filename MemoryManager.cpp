@@ -2,6 +2,23 @@
 #include "Process.h"
 
 #include <iostream>
+#include <chrono>
+#include <filesystem>
+
+// Helper: get the current time as a formatted string "(MM/DD/YYYY HH:MM:SSAM)"
+static std::string getCurrentTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "(%m/%d/%Y %I:%M:%S%p)");
+    return oss.str();
+}
 
 MemoryManager::MemoryManager(long long totalMemory, long long frameSize, long long memPerProc)
     : totalMemory(totalMemory), frameSize(frameSize), memPerProc(memPerProc) {
@@ -97,7 +114,7 @@ void MemoryManager::printMemoryState() const {
     std::lock_guard<std::mutex> lock(memMutex);
     std::cout << "---end--- = " << totalMemory << "\n\n";
 
-    for (size_t i = 0; i < memory.size(); ++i) {
+    for (int i = static_cast<int>(memory.size()) - framesPerProcess; i >= 0 ; i -= framesPerProcess) {
         if (memory[i].isValid || memory[i].process == nullptr) {
             continue; // Skip blocks without a process
         }
@@ -111,8 +128,42 @@ void MemoryManager::printMemoryState() const {
         std::cout << process->getName() << "\n";
         std::cout << startAddress << "\n\n";
 
-        i += framesPerProcess - 1; // Skip to the next process's memory blocks
     }
 
     std::cout << "---start--- = 0\n";
+}
+
+void MemoryManager::printToFile(long long quantumCycle) const
+{
+    std::filesystem::create_directories("snapshots");
+	std::ofstream outFile("snapshots\\memory_stamp_" + std::to_string(quantumCycle) + ".txt");
+
+    if (!outFile.is_open()) {
+        return;
+    }
+
+    outFile << "Timestamp: " << getCurrentTimestamp() << "\n";
+    outFile << "Number of processes in memory: " << getProcessInMemory() << "\n";
+    outFile << "Total external fragmentation in KB: " << getExternalFragmentation() << "\n";
+    
+    std::lock_guard<std::mutex> lock(memMutex);
+    outFile << "---end--- = " << totalMemory << "\n\n";
+
+    for (int i = static_cast<int>(memory.size()) - framesPerProcess; i >= 0; i -= framesPerProcess) {
+        if (memory[i].isValid || memory[i].process == nullptr) {
+            continue; // Skip blocks without a process
+        }
+
+        const Process* process = memory[i].process;
+
+        long long startAddress = static_cast<long long>(i) * frameSize;
+        long long endAddress = startAddress + memPerProc;
+
+        outFile << endAddress << "\n";
+        outFile << process->getName() << "\n";
+        outFile << startAddress << "\n\n";
+
+    }
+
+    outFile << "---start--- = 0\n";
 }

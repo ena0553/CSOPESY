@@ -30,4 +30,5 @@ class MemoryManager {
         int getProcessInMemory() const; // Get the number of processes currently in memory
         long long getExternalFragmentation() const; // Get the amount of external fragmentation in memory
         void printMemoryState() const; // Print the current state of memory
+        void printToFile(long long quantumCycle) const; // Print the current state of memory to file with more info
 };
