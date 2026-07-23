@@ -2,8 +2,11 @@
 #include "Process.h"
 
 #include <iostream>
+#include <sstream>
 #include <chrono>
+#include <iomanip>
 #include <filesystem>
+#include <fstream>
 
 // Helper: get the current time as a formatted string "(MM/DD/YYYY HH:MM:SSAM)"
 static std::string getCurrentTimestamp() {
@@ -21,149 +24,203 @@ static std::string getCurrentTimestamp() {
 }
 
 MemoryManager::MemoryManager(long long totalMemory, long long frameSize, long long memPerProc)
-    : totalMemory(totalMemory), frameSize(frameSize), memPerProc(memPerProc) {
-    // Initialize memory blocks
+    : totalMemory(totalMemory), frameSize(frameSize), memPerProc(memPerProc)
+{
+    memoryAllocatorType = PAGING;              // declares this allocator's strategy, per IMemoryAllocator
+    maximumSize = static_cast<size_t>(totalMemory);
+    currentAllocatedSize = 0;
+
     totalFrames = totalMemory / frameSize;
     framesPerProcess = memPerProc / frameSize;
-    memory.resize(totalFrames);
-    for (auto& block : memory) {
-        block.process = nullptr;
-        block.isValid = true; // Initially, all blocks are free
-    }
+
+    frameTable.resize(static_cast<size_t>(totalFrames));
 }
 
-bool MemoryManager::allocate(Process* process) {
-    std::lock_guard<std::mutex> lock(memMutex);
-    if (framesPerProcess > memory.size()) return false;
-    for (size_t i = 0; i <= memory.size() - framesPerProcess; ++i) {
-        bool canAllocate = true;
-        for (size_t j = 0; j < framesPerProcess; ++j) {
-            if (!memory[i + j].isValid) {
-                canAllocate = false;
-                break;
-            }
-        }
-        if (canAllocate) {
-            for (size_t j = 0; j < framesPerProcess; ++j) {
-                memory[i + j].process = process;
-                memory[i + j].isValid = false;
-            }
-            process->setInMemory(true); // Mark the process as in memory
-            process->setStartFrame(static_cast<int>(i)); // Set the starting frame index
-            return true; // Allocation successful
-        }
-    }
-    return false; // Not enough contiguous free frames
-}
+// ------------------------------------------------------------------
+// Core paging allocate: hands out `size` bytes as a set of frames that
+// do NOT need to be contiguous. That's the whole point of paging -- the
+// page table stitches together scattered physical frames into one
+// logical allocation, so we never need a best-fit/first-fit search over
+// contiguous runs the way a flat allocator would.
+// ------------------------------------------------------------------
+void* MemoryManager::allocateLocked(size_t size, Process* owner)
+{
+    long long framesNeeded = (static_cast<long long>(size) + frameSize - 1) / frameSize; // ceil division
+    if (framesNeeded <= 0) framesNeeded = 1;
 
-void MemoryManager::deallocate(Process* process) {
-    std::lock_guard<std::mutex> lock(memMutex);
-    int start = process->getStartFrame();
-
-    if (start == -1) {
-        return; // Process is not in memory
-    }
-
-    for (size_t i = start; i < start + framesPerProcess && i < memory.size(); ++i) {
-        if (memory[i].process == process) {
-            memory[i].process = nullptr;
-            memory[i].isValid = true;
+    std::vector<int> freeFrames;
+    freeFrames.reserve(static_cast<size_t>(framesNeeded));
+    for (int i = 0; i < static_cast<int>(frameTable.size()) &&
+                    static_cast<long long>(freeFrames.size()) < framesNeeded; i++)
+    {
+        if (!frameTable[i].occupied) {
+            freeFrames.push_back(i);
         }
     }
 
-    process->setInMemory(false); // Mark the process as not in memory
-    process->setStartFrame(-1); // Reset the starting frame index
-}
-
-int MemoryManager::getProcessInMemory() const {
-    std::lock_guard<std::mutex> lock(memMutex);
-    int count = 0;
-    for (const auto& block : memory) {
-        if (!block.isValid && block.process != nullptr) {
-            ++count;
-        }
+    if (static_cast<long long>(freeFrames.size()) < framesNeeded) {
+        return nullptr; // Not enough free frames anywhere in memory.
+        // A fuller implementation would page out a victim process to the
+        // backing store here to make room -- see task 4 discussion.
     }
-    return count / framesPerProcess; // Return the number of processes currently in memory
+
+    void* handle = reinterpret_cast<void*>(nextHandleId++);
+
+    std::vector<PageTableEntry> table;
+    table.reserve(static_cast<size_t>(framesNeeded));
+    for (int i = 0; i < framesNeeded; i++) {
+        int frame = freeFrames[static_cast<size_t>(i)];
+        frameTable[frame].occupied = true;
+        frameTable[frame].owner = owner;
+        frameTable[frame].pageNumber = i;
+
+        table.push_back(PageTableEntry{ frame, true });
+    }
+
+    pageTables[handle] = std::move(table);
+    if (owner) handleOwner[handle] = owner;
+
+    currentAllocatedSize += static_cast<size_t>(framesNeeded * frameSize);
+    numPagedIn += framesNeeded; // Task 7: every frame we bring into memory counts as one page-in.
+
+    return handle;
 }
 
-long long MemoryManager::getExternalFragmentation() const {
-    std::lock_guard<std::mutex> lock(memMutex);
-    size_t currentRun = 0;
-    size_t fragmentedFrames = 0;
+void MemoryManager::deallocateLocked(void* handle)
+{
+    auto it = pageTables.find(handle);
+    if (it == pageTables.end()) return; // unknown/foreign handle -- nothing to do
 
-    for (const auto& block : memory) {
-        if (block.isValid) {
-            ++currentRun;
+    for (const PageTableEntry& pte : it->second) {
+        if (!pte.valid) continue;
+        frameTable[pte.frameNumber] = FrameTableEntry{}; // reset to free
+        numPagedOut++; // Task 7: every frame we evict/release counts as one page-out.
+    }
+
+    currentAllocatedSize -= it->second.size() * static_cast<size_t>(frameSize);
+
+    pageTables.erase(it);
+    handleOwner.erase(handle);
+}
+
+// ---- IMemoryAllocator interface ----
+
+void* MemoryManager::allocate(size_t size)
+{
+    std::lock_guard<std::mutex> lock(memMutex);
+    return allocateLocked(size, nullptr);
+}
+
+void MemoryManager::deallocate(void* ptr)
+{
+    std::lock_guard<std::mutex> lock(memMutex);
+
+    // If this handle belonged to a process, keep the process<->handle maps consistent.
+    auto ownerIt = handleOwner.find(ptr);
+    if (ownerIt != handleOwner.end()) {
+        processHandle.erase(ownerIt->second);
+    }
+
+    deallocateLocked(ptr);
+}
+
+std::string MemoryManager::visualizeMemory()
+{
+    std::lock_guard<std::mutex> lock(memMutex);
+    std::ostringstream oss;
+
+    oss << "Total frames: " << totalFrames << " (frame size " << frameSize << ")\n";
+    oss << "Allocated: " << currentAllocatedSize << " / " << maximumSize << "\n";
+    oss << "-----------------------------------------\n";
+
+    for (size_t i = 0; i < frameTable.size(); i++) {
+        const auto& f = frameTable[i];
+        oss << "Frame " << i << ": ";
+        if (f.occupied) {
+            oss << (f.owner ? f.owner->getName() : std::string("(handle)"))
+                << " page " << f.pageNumber;
         } else {
-            if (currentRun > 0 && currentRun < framesPerProcess) {
-                fragmentedFrames += currentRun;
-            }
-            currentRun = 0;
+            oss << "free";
         }
+        oss << "\n";
     }
 
-    // Handle a free run at the end of memory
-    if (currentRun > 0 && currentRun < framesPerProcess) {
-        fragmentedFrames += currentRun;
-    }
-
-    return static_cast<long long>(fragmentedFrames * frameSize);
+    return oss.str();
 }
 
-void MemoryManager::printMemoryState() const {
+// ---- Process-facing convenience wrappers ----
+
+bool MemoryManager::allocate(Process* process)
+{
     std::lock_guard<std::mutex> lock(memMutex);
-    std::cout << "---end--- = " << totalMemory << "\n\n";
 
-    for (int i = static_cast<int>(memory.size()) - framesPerProcess; i >= 0 ; i -= framesPerProcess) {
-        if (memory[i].isValid || memory[i].process == nullptr) {
-            continue; // Skip blocks without a process
+    void* handle = allocateLocked(static_cast<size_t>(process->getMemoryUsage()), process);
+    if (!handle) return false;
+
+    processHandle[process] = handle;
+    process->setInMemory(true);
+    return true;
+}
+
+void MemoryManager::deallocate(Process* process)
+{
+    std::lock_guard<std::mutex> lock(memMutex);
+
+    auto it = processHandle.find(process);
+    if (it == processHandle.end()) return; // process was never in memory
+
+    handleOwner.erase(it->second);
+    deallocateLocked(it->second);
+    processHandle.erase(it);
+
+    process->setInMemory(false);
+}
+
+int MemoryManager::getProcessInMemory() const
+{
+    std::lock_guard<std::mutex> lock(memMutex);
+    return static_cast<int>(processHandle.size());
+}
+
+// Paging removes EXTERNAL fragmentation by design (frames need not be
+// contiguous), so we no longer report it. What paging still has is
+// INTERNAL fragmentation: the last frame given to a process is wasted
+// space if the process's memory usage isn't an exact multiple of frameSize.
+long long MemoryManager::getInternalFragmentation() const
+{
+    std::lock_guard<std::mutex> lock(memMutex);
+    long long waste = 0;
+    for (const auto& kv : pageTables) {
+        Process* owner = nullptr;
+        auto oit = handleOwner.find(kv.first);
+        if (oit != handleOwner.end()) owner = oit->second;
+        if (!owner) continue;
+
+        long long allocatedBytes = static_cast<long long>(kv.second.size()) * frameSize;
+        long long usedBytes = owner->getMemoryUsage();
+        if (allocatedBytes > usedBytes) {
+            waste += (allocatedBytes - usedBytes);
         }
-
-        const Process* process = memory[i].process;
-
-        long long startAddress = static_cast<long long>(i) * frameSize;
-        long long endAddress = startAddress + memPerProc;
-    
-        std::cout << endAddress << "\n";
-        std::cout << process->getName() << "\n";
-        std::cout << startAddress << "\n\n";
-
     }
+    return waste;
+}
 
-    std::cout << "---start--- = 0\n";
+void MemoryManager::printMemoryState() const
+{
+    std::cout << const_cast<MemoryManager*>(this)->visualizeMemory();
 }
 
 void MemoryManager::printToFile(long long quantumCycle) const
 {
     std::filesystem::create_directories("snapshots");
-	std::ofstream outFile("snapshots\\memory_stamp_" + std::to_string(quantumCycle) + ".txt");
-
-    if (!outFile.is_open()) {
-        return;
-    }
+    std::ofstream outFile("snapshots\\memory_stamp_" + std::to_string(quantumCycle) + ".txt");
+    if (!outFile.is_open()) return;
 
     outFile << "Timestamp: " << getCurrentTimestamp() << "\n";
     outFile << "Number of processes in memory: " << getProcessInMemory() << "\n";
-    outFile << "Total external fragmentation in KB: " << getExternalFragmentation() << "\n";
-    
-    std::lock_guard<std::mutex> lock(memMutex);
-    outFile << "---end--- = " << totalMemory << "\n\n";
-
-    for (int i = static_cast<int>(memory.size()) - framesPerProcess; i >= 0; i -= framesPerProcess) {
-        if (memory[i].isValid || memory[i].process == nullptr) {
-            continue; // Skip blocks without a process
-        }
-
-        const Process* process = memory[i].process;
-
-        long long startAddress = static_cast<long long>(i) * frameSize;
-        long long endAddress = startAddress + memPerProc;
-
-        outFile << endAddress << "\n";
-        outFile << process->getName() << "\n";
-        outFile << startAddress << "\n\n";
-
-    }
-
-    outFile << "---start--- = 0\n";
+    outFile << "Internal fragmentation (bytes): " << getInternalFragmentation() << "\n";
+    outFile << "Pages paged in (cumulative): " << numPagedIn << "\n";
+    outFile << "Pages paged out (cumulative): " << numPagedOut << "\n";
+    outFile << "-----------------------------------------\n";
+    outFile << const_cast<MemoryManager*>(this)->visualizeMemory();
 }
