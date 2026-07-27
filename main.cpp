@@ -330,8 +330,9 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
         int coreID = 0;
         while (generating) {
             int numCommands = getRandomInt(config.minIns, config.maxIns);
+            int memPerProc = getRandomInt(config.minMemPerProc, config.maxMemPerProc);
             string name = string("process") + (pidCounter < 10 ? "0" : "") + to_string(pidCounter);
-            auto newProcess = makeProcess(pidCounter++, name, numCommands, config.minMemPerProc); // // FIXME: minMemPerProc will be replaced by the rolled value (M) between min-mem-per-proc and max-mem-per-proc. (Number of Pages (P) = M / mem-per-frame)
+            auto newProcess = makeProcess(pidCounter++, name, numCommands, memPerProc); // POSSIBLE FIXME: memPerProc may need to be a power of two
             {
                 lock_guard<mutex> lock(processListMutex);
                 processList.push_back(newProcess);
@@ -479,7 +480,8 @@ int main() {
     commandMap["initialize"] = [&config, &scheduler, &memManager]() {
         if (initialize(config)) {
             // create the memory manager
-			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, config.minMemPerProc); // FIXME: minMemPerProc will be replaced by the rolled value between min-mem-per-proc and max-mem-per-proc. (Number of Pages (P) = M / mem-per-frame)
+            int memPerProc = getRandomInt(config.minMemPerProc, config.maxMemPerProc);
+			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, memPerProc); // POSSIBLE FIXME: memPerProc may need to be a power of two
 
             // create the scheduler
             scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec, memManager.get());
@@ -620,8 +622,9 @@ int main() {
 
                 /* new process creation */
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
+                int memPerProc = getRandomInt(config.minMemPerProc, config.maxMemPerProc);
 
-                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, config.minMemPerProc); // FIXME (i think): minMemPerProc will be replaced by the rolled value between min-mem-per-proc and max-mem-per-proc. (Number of Pages (P) = M / mem-per-frame)
+                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memPerProc); // POSSIBLE FIXME: memPerProc may need to be a power of two
                 {   // lock when adding a new process
                     lock_guard<mutex> lock(processListMutex);
                     processList.push_back(newProcess);
