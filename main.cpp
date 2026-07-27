@@ -193,6 +193,20 @@ int getRandomInt(int minIns, int maxIns)
     return dist(gen);
 }
 
+// Helper: get a random integer between minimum memory per process and maximum memory per process
+int getRandomPowerOfTwo(int minMemPerProc, int maxMemPerProc)
+{
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+
+    int minExp = std::log2(minMemPerProc); // exponent
+    int maxExp = std::log2(maxMemPerProc); // exponent
+
+    std::uniform_int_distribution<int> dist(minExp, maxExp); // choose random exponent
+
+    return 1 << dist(gen); // returns 2^(random exponent)
+}
+
 // Helper: check if number is a power of two
 bool isPowerOfTwo(int n) {
     return n > 0 && (n & (n - 1)) == 0;
@@ -330,9 +344,9 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
         int coreID = 0;
         while (generating) {
             int numCommands = getRandomInt(config.minIns, config.maxIns);
-            int memPerProc = getRandomInt(config.minMemPerProc, config.maxMemPerProc);
+            int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
             string name = string("process") + (pidCounter < 10 ? "0" : "") + to_string(pidCounter);
-            auto newProcess = makeProcess(pidCounter++, name, numCommands, memPerProc); // POSSIBLE FIXME: memPerProc may need to be a power of two
+            auto newProcess = makeProcess(pidCounter++, name, numCommands, memPerProc);
             {
                 lock_guard<mutex> lock(processListMutex);
                 processList.push_back(newProcess);
@@ -480,8 +494,8 @@ int main() {
     commandMap["initialize"] = [&config, &scheduler, &memManager]() {
         if (initialize(config)) {
             // create the memory manager
-            int memPerProc = getRandomInt(config.minMemPerProc, config.maxMemPerProc);
-			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, memPerProc); // POSSIBLE FIXME: memPerProc may need to be a power of two
+            int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
+			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, memPerProc);
 
             // create the scheduler
             scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec, memManager.get());
@@ -622,9 +636,9 @@ int main() {
 
                 /* new process creation */
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
-                int memPerProc = getRandomInt(config.minMemPerProc, config.maxMemPerProc);
+                int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
 
-                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memPerProc); // POSSIBLE FIXME: memPerProc may need to be a power of two
+                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memPerProc);
                 {   // lock when adding a new process
                     lock_guard<mutex> lock(processListMutex);
                     processList.push_back(newProcess);
