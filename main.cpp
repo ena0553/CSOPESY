@@ -57,9 +57,10 @@ struct Config
     long long minIns; // range 1 - 2^32 (4294967296)
     long long maxIns; // range 1 - 2^32 (4294967296)
     long long delayPerExec; // range 0 - 2^32 (4294967296)
-    long long maxOverallMem; // range not specified
-    long long memPerFrame; // range not specified
-    long long memPerProc; // range not specified 
+	long long maxOverallMem; // range 2^6 (64) - 2^16 (65536)
+    long long memPerFrame; // range 2^6 (64) - 2^16 (65536)
+    long long minMemPerProc; // range 2^6 (64) - 2^16 (65536)
+    long long maxMemPerProc; // range 2^6 (64) - 2^16 (65536)
 };
 
 enum class Mode {
@@ -192,6 +193,10 @@ int getRandomInt(int minIns, int maxIns)
     return dist(gen);
 }
 
+// Helper: check if number is a power of two
+bool isPowerOfTwo(int n) {
+    return n > 0 && (n & (n - 1)) == 0;
+}
 
 // Helper: Generate two operands (for add and subtract commands)
 std::pair<Operand, Operand> generateOperands() {
@@ -326,7 +331,7 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
         while (generating) {
             int numCommands = getRandomInt(config.minIns, config.maxIns);
             string name = string("process") + (pidCounter < 10 ? "0" : "") + to_string(pidCounter);
-            auto newProcess = makeProcess(pidCounter++, name, numCommands, config.memPerProc);
+            auto newProcess = makeProcess(pidCounter++, name, numCommands, config.minMemPerProc); // // FIXME: minMemPerProc will be replaced by the rolled value (M) between min-mem-per-proc and max-mem-per-proc. (Number of Pages (P) = M / mem-per-frame)
             {
                 lock_guard<mutex> lock(processListMutex);
                 processList.push_back(newProcess);
@@ -359,8 +364,9 @@ void createConfigFile()
     file << "max-ins 2000\n";
     file << "delay-per-exec 0\n";
     file << "max-overall-mem 16384\n";
-    file << "mem-per-frame 16\n";
-    file << "mem-per-proc 4096\n";
+    file << "mem-per-frame 64\n";
+    file << "min-mem-per-proc 4096\n";
+    file << "max-mem-per-proc 4096\n";
 
     file.close();
 }
@@ -400,7 +406,8 @@ bool initialize(Config& config)
         else if (line == "delay-per-exec") { file >> config.delayPerExec; }
         else if (line == "max-overall-mem") { file >> config.maxOverallMem; }
         else if (line == "mem-per-frame") { file >> config.memPerFrame; }
-        else if (line == "mem-per-proc") { file >> config.memPerProc; }
+        else if (line == "min-mem-per-proc") { file >> config.minMemPerProc; }
+        else if (line == "max-mem-per-proc") { file >> config.maxMemPerProc; }
     }
 
     const long long max = 4294967296; // 2^32
@@ -433,6 +440,22 @@ bool initialize(Config& config)
         cout << "Invalid delay-per-exec value in config.txt. Must be between 0 and 2^32 (4294967296)." << endl;
         return false;
     }
+	if (config.maxOverallMem < 64 || config.maxOverallMem > 65536 || !(isPowerOfTwo(config.maxOverallMem))) {
+		cout << "Invalid max-overall-mem value in config.txt. Must be between 2^6 (64) and 2^16 (65536) and is a power of 2." << endl;
+		return false;
+	}
+	if (config.memPerFrame < 64 || config.memPerFrame > 65536 || !(isPowerOfTwo(config.memPerFrame))) {
+		cout << "Invalid mem-per-frame value in config.txt. Must be between 2^6 (64) and 2^16 (65536) and is a power of 2." << endl;
+		return false;
+	}
+	if (config.minMemPerProc < 64 || config.minMemPerProc > 65536 || !(isPowerOfTwo(config.minMemPerProc))) {
+		cout << "Invalid min-mem-per-proc value in config.txt. Must be between 2^6 (64) and 2^16 (65536) and is a power of 2." << endl;
+		return false;
+	}
+    if (config.maxMemPerProc < 64 || config.maxMemPerProc > 65536 || !(isPowerOfTwo(config.maxMemPerProc))) {
+        cout << "Invalid max-mem-per-proc value in config.txt. Must be between 2^6 (64) and 2^16 (65536) and is a power of 2." << endl;
+        return false;
+    }
 
     file.close();
 
@@ -456,7 +479,7 @@ int main() {
     commandMap["initialize"] = [&config, &scheduler, &memManager]() {
         if (initialize(config)) {
             // create the memory manager
-            memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, config.memPerProc);
+			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, config.minMemPerProc); // FIXME: minMemPerProc will be replaced by the rolled value between min-mem-per-proc and max-mem-per-proc. (Number of Pages (P) = M / mem-per-frame)
 
             // create the scheduler
             scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec, memManager.get());
@@ -598,7 +621,7 @@ int main() {
                 /* new process creation */
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
 
-                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, config.memPerProc);
+                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, config.minMemPerProc); // FIXME (i think): minMemPerProc will be replaced by the rolled value between min-mem-per-proc and max-mem-per-proc. (Number of Pages (P) = M / mem-per-frame)
                 {   // lock when adding a new process
                     lock_guard<mutex> lock(processListMutex);
                     processList.push_back(newProcess);
