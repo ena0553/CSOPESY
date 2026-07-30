@@ -237,8 +237,9 @@ uint32_t generateRandomAddress(long long memPerProc) {
     static std::random_device rd;
     static std::mt19937 gen(rd());
 
-    std::uniform_int_distribution<uint32_t> dist(0, static_cast<uint32_t>(memPerProc - 1));
-    return dist(gen) * sizeof(uint16_t); // Ensure the address is aligned to 2 bytes
+    // Ensure the address is aligned to 2 bytes
+    std::uniform_int_distribution<uint32_t> dist(0, static_cast<uint32_t>(memPerProc / sizeof(uint16_t) - 1)); 
+    return dist(gen)  * sizeof(uint16_t); 
 }
 
 // Generate random commands for a process. For loops can be nested up to 3 times

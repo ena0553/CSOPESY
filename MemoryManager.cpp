@@ -86,7 +86,7 @@ uint16_t MemoryManager::read(Process* process, uint32_t address) const {
         throw std::runtime_error("Process is not in memory");
     }
 
-    if (address < 0 || address + sizeof(uint16_t) > memPerProc) {
+    if (address + sizeof(uint16_t) > memPerProc) {
         throw std::out_of_range("Address out of bounds for this process");
     }
 
@@ -113,7 +113,7 @@ void MemoryManager::write(Process* process, uint32_t address, uint16_t value) {
         throw std::runtime_error("Process is not in memory");
     }
 
-    if (address < 0 || address + sizeof(uint16_t) > memPerProc) {
+    if (address + sizeof(uint16_t) > memPerProc) {
         throw std::out_of_range("Address out of bounds for this process");
     }
 
