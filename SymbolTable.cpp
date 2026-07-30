@@ -1,33 +1,69 @@
 #include "SymbolTable.h"
 
-void SymbolTable::declare(const std::string& name, uint16_t value)
+bool SymbolTable::declare(const std::string& name, uint16_t value)
 {
-    // Only set if not already declared — DECLARE does not overwrite.
-    if (table.find(name) == table.end())
+    if (table.find(name) != table.end())
     {
-        table[name] = clamp(static_cast<int32_t>(value));
+        return true; // already declared, DECLARE never overwrites
     }
+
+    if (table.size() >= MAX_VARIABLES)
+    {
+        return false; // segment full (64 bytes / 32 vars) — ignore
+    }
+
+    table[name] = clamp(static_cast<int32_t>(value));
+    return true;
 }
 
-void SymbolTable::set(const std::string& name, int32_t value)
+bool SymbolTable::set(const std::string& name, int32_t value)
 {
-    // variables are auto-declared at 0 if not yet declared.
+    auto it = table.find(name);
+    if (it != table.end())
+    {
+        it->second = clamp(value);
+        return true;
+    }
+
+    if (table.size() >= MAX_VARIABLES)
+    {
+        return false; // full — cannot auto-declare a new variable
+    }
+
     table[name] = clamp(value);
+    return true;
 }
 
 uint16_t SymbolTable::get(const std::string& name)
 {
-    // auto-declare at 0 if not yet declared.
-    if (table.find(name) == table.end())
+    auto it = table.find(name);
+    if (it != table.end())
+    {
+        return it->second;
+    }
+
+    if (table.size() < MAX_VARIABLES)
     {
         table[name] = 0;
+        return 0;
     }
-    return table[name];
+
+    return 0; // full: treat as an undeclared read, but don't add it
 }
 
 bool SymbolTable::has(const std::string& name) const
 {
     return table.find(name) != table.end();
+}
+
+bool SymbolTable::isFull() const
+{
+    return table.size() >= MAX_VARIABLES;
+}
+
+size_t SymbolTable::size() const
+{
+    return table.size();
 }
 
 uint16_t SymbolTable::clamp(int32_t value)

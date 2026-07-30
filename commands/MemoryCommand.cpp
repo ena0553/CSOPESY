@@ -27,8 +27,12 @@ void MemoryCommand::execute(Process& process) {
     try {
         if (operation == Operation::READ) {
             uint16_t value = memoryManager->read(&process, address);
-            process.getSymbolTable().set(variable, value);
-            process.log("READ from address " + std::to_string(address) + ": " + std::to_string(value) + " into variable " + variable);
+            bool stored = process.getSymbolTable().set(variable, value);
+            if (stored) {
+                process.log("READ from address " + std::to_string(address) + ": " + std::to_string(value) + " into variable " + variable);
+            } else {
+                process.log("READ from address " + std::to_string(address) + " ignored: symbol table full (max 32 variables)");
+            }
         } else {
             uint16_t valueToWrite = resolve(source, process);
             memoryManager->write(&process, address, valueToWrite);
@@ -38,32 +42,24 @@ void MemoryCommand::execute(Process& process) {
     } catch (const std::exception& e) {
         process.log("Memory operation failed: " + std::string(e.what()));
     }
-    
 }
 
 std::string MemoryCommand::toString() const {
     std::stringstream ss;
-        ss << "0x"
-        << std::uppercase
-        << std::hex
-        << address;
+    ss << "0x" << std::uppercase << std::hex << address;
     if (operation == Operation::READ) {
         return "READ from address " + ss.str() + " into variable " + variable;
     } else {
-        std::string valueStr = operandStr(source);
-        return "WRITE to address " + ss.str() + ": " + valueStr;
+        return "WRITE to address " + ss.str() + ": " + operandStr(source);
     }
 }
 
 uint16_t MemoryCommand::resolve(const Operand& operand, Process& process) const
 {
-    if (std::holds_alternative<std::string>(operand)) {
-        // Variable — auto-declared at 0 by get() if not yet declared.
+    if (std::holds_alternative<std::string>(operand))
         return process.getSymbolTable().get(std::get<std::string>(operand));
-    }
-    else {
+    else
         return std::get<uint16_t>(operand);
-    }
 }
 
 std::string MemoryCommand::operandStr(const Operand& operand) const

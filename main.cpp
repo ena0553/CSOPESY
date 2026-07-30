@@ -8,9 +8,11 @@
 #include <iomanip>
 #include <random>
 #include <chrono>
+#include <sstream>
 
 #include "ProcessScheduler.h"
 #include "Process.h"
+#include "CommandParser.h"
 #include "commands/PrintCommand.h"
 #include "commands/SleepCommand.h"
 #include "commands/SubtractCommand.h"
@@ -609,6 +611,7 @@ int main() {
         cout << "  report-util         - Report CPU utilization\n";
         cout << "  screen -ls          - List running and finished processes\n";
         cout << "  screen -s <name>    - Start a new process with the given name\n";
+        cout << "  screen -c <name> <mem> \"<instrs>\" - Create a process with custom instructions\n";
         cout << "  screen -r <name>    - Review an existing process with the given name\n";
         cout << "  clear               - Clear the console screen\n";
         cout << "  help                - Show this help message\n";
@@ -644,6 +647,70 @@ int main() {
         getline(cin, input);
 
         if (screenMode == Mode::MAIN) { // MAIN mode for MAIN inputs
+
+            //
+            // screen -c <process name> <memory size> "<instructions>" command
+            //
+            if (input.find("screen -c ") == 0)
+            {
+                if (!scheduler) {
+                    cout << "Scheduler not initialized" << endl;
+                    continue;
+                }
+
+                std::string rest = input.substr(string("screen -c ").size());
+
+                size_t firstQuote = rest.find('"');
+                size_t lastQuote = rest.rfind('"');
+                if (firstQuote == std::string::npos || lastQuote == firstQuote)
+                {
+                    cout << "Usage: screen -c <process name> <memory size> \"<instructions>\"" << endl;
+                    continue;
+                }
+
+                std::string header = rest.substr(0, firstQuote);
+                std::string instructionText = rest.substr(firstQuote + 1, lastQuote - firstQuote - 1);
+
+                std::istringstream headerStream(header);
+                std::string procName;
+                long long memSize = 0;
+                headerStream >> procName >> memSize;
+
+                if (procName.empty() || headerStream.fail())
+                {
+                    cout << "Usage: screen -c <process name> <memory size> \"<instructions>\"" << endl;
+                    continue;
+                }
+
+                if (memSize < 64 || memSize > 65536 || !isPowerOfTwo(static_cast<int>(memSize)))
+                {
+                    cout << "Invalid memory size. Must be a power of 2 between 64 and 65536." << endl;
+                    continue;
+                }
+
+                try
+                {
+                    auto p = make_shared<Process>(pidCounter++, "screen", procName, memSize);
+                    auto cmds = CommandParser::parse(instructionText, memSize, memManager.get());
+                    for (auto& c : cmds) p->addCommand(c);
+
+                    {
+                        lock_guard<mutex> lock(processListMutex);
+                        processList.push_back(p);
+                    }
+                    scheduler->addProcess(p, rand() % scheduler->getnumCores());
+
+                    activeProcessInput = p;
+                    screenMode = Mode::SUBSCREEN;
+                    system("cls");
+                }
+                catch (const std::exception& e)
+                {
+                    cout << "Failed to create process: " << e.what() << endl;
+                }
+
+                continue;
+            }
 
             //
             // screen -s <process name> command
@@ -736,6 +803,12 @@ int main() {
             //
             // minor input validation area
             //
+            if (input.find("screen -c") == 0)
+            {
+                cout << "Usage: screen -c <process name> <memory size> \"<instructions>\"" << endl;
+                continue;
+            }
+
             if (input.find("screen -s") == 0)
             {
                 cout << "Usage: screen -s <process name>" << endl;
