@@ -54,7 +54,7 @@ void Process::executeNextCommand() {
 }
 
 bool Process::isFinished() const {
-    return getCommandCounter() >= getTotalCommands();
+    return commandIndex.load() >= commandList.size();
 }
 
 // Logging

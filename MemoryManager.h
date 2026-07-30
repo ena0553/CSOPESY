@@ -3,12 +3,15 @@
 #include <vector>
 #include <memory>
 #include <mutex>
+#include <cstdint>
 
 class Process; // Forward declaration of Process class
 
 struct MemoryBlock {
     Process* process; // Pointer to the process that owns this block
     bool isValid;       // Flag indicating if the block is allocated
+
+    std::vector<uint16_t> data; // Simulated memory data for this block
 };
 
 class MemoryManager {
@@ -31,4 +34,8 @@ class MemoryManager {
         long long getExternalFragmentation() const; // Get the amount of external fragmentation in memory
         void printMemoryState() const; // Print the current state of memory
         void printToFile(long long quantumCycle) const; // Print the current state of memory to file with more info
+
+        uint16_t read(Process* process, uint32_t address) const; // Read a value from memory at a specific address
+        void write(Process* process, uint32_t address, uint16_t value); // Write a value to memory at a specific address
+
 };

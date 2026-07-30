@@ -4,6 +4,9 @@
 #include <iostream>
 #include <chrono>
 #include <filesystem>
+#include <iomanip>
+#include <sstream>
+#include <ctime>
 
 // Helper: get the current time as a formatted string "(MM/DD/YYYY HH:MM:SSAM)"
 static std::string getCurrentTimestamp() {
@@ -29,6 +32,7 @@ MemoryManager::MemoryManager(long long totalMemory, long long frameSize, long lo
     for (auto& block : memory) {
         block.process = nullptr;
         block.isValid = true; // Initially, all blocks are free
+        block.data.resize(frameSize / sizeof(uint16_t), 0); // Initialize data to zero
     }
 }
 
@@ -73,6 +77,59 @@ void MemoryManager::deallocate(Process* process) {
 
     process->setInMemory(false); // Mark the process as not in memory
     process->setStartFrame(-1); // Reset the starting frame index
+}
+
+uint16_t MemoryManager::read(Process* process, uint32_t address) const {
+    std::lock_guard<std::mutex> lock(memMutex);
+    int startFrame = process->getStartFrame();
+    if (!process->isInMemory() || startFrame == -1) {
+        throw std::runtime_error("Process is not in memory");
+    }
+
+    if (address < 0 || address >= memPerProc) {
+        throw std::out_of_range("Address out of bounds for this process");
+    }
+
+    uint32_t frameOffset = address / frameSize;
+    uint32_t offsetWithinFrame = address % frameSize;
+
+    if (offsetWithinFrame % sizeof(uint16_t) != 0) {
+        throw std::runtime_error("Address is not aligned to 2 bytes");
+    }
+
+
+    uint32_t blockIndex = startFrame + frameOffset;
+    if (blockIndex >= memory.size() || memory[blockIndex].process != process) {
+        throw std::runtime_error("Invalid memory access");
+    }
+
+    return memory[blockIndex].data[offsetWithinFrame / sizeof(uint16_t)];
+}
+
+void MemoryManager::write(Process* process, uint32_t address, uint16_t value) {
+    std::lock_guard<std::mutex> lock(memMutex);
+    int startFrame = process->getStartFrame();
+    if (!process->isInMemory() || startFrame == -1) {
+        throw std::runtime_error("Process is not in memory");
+    }
+
+    if (address < 0 || address >= memPerProc) {
+        throw std::out_of_range("Address out of bounds for this process");
+    }
+
+    uint32_t frameOffset = address / frameSize;
+    uint32_t offsetWithinFrame = address % frameSize;
+
+    if (offsetWithinFrame % sizeof(uint16_t) != 0) {
+        throw std::runtime_error("Address is not aligned to 2 bytes");
+    }
+
+    uint32_t blockIndex = startFrame + frameOffset;
+    if (blockIndex >= memory.size() || memory[blockIndex].process != process) {
+        throw std::runtime_error("Invalid memory access");
+    }
+
+    memory[blockIndex].data[offsetWithinFrame / sizeof(uint16_t)] = value;
 }
 
 int MemoryManager::getProcessInMemory() const {

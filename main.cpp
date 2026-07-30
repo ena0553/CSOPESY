@@ -17,6 +17,7 @@
 #include "commands/ForCommand.h"
 #include "commands/DeclareCommand.h"
 #include "commands/AddCommand.h"
+#include "commands/MemoryCommand.h"
 
 #include <thread>
 #include <atomic>
@@ -232,11 +233,19 @@ std::pair<Operand, Operand> generateOperands() {
     return {op1, op2};
 }
 
+uint32_t generateRandomAddress(long long memPerProc) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+
+    std::uniform_int_distribution<uint32_t> dist(0, static_cast<uint32_t>(memPerProc - 1));
+    return dist(gen) * sizeof(uint16_t); // Ensure the address is aligned to 2 bytes
+}
+
 // Generate random commands for a process. For loops can be nested up to 3 times
-GeneratedCommand generateRandomCommand(const string& name, int depth, int& remainingCommands) {
+GeneratedCommand generateRandomCommand(const string& name, int depth, int& remainingCommands, long long memoryUsage, MemoryManager* memManager = nullptr) {
     // Only allow nesting up to 3 times and allow FOR command if there is enough remaining commands for there to be instructions in the FOR
-    int maxType = (depth < 3 && remainingCommands > 2) ? 6 : 5;
-    int type = getRandomInt(1, maxType); // 1: Print, 2: Declare, 3: Add, 4: Subtract, 5: Sleep, 6: For
+    int maxType = (depth < 3 && remainingCommands > 2) ? 8 : 7;
+    int type = getRandomInt(1, maxType); // 1: Print, 2: Declare, 3: Add, 4: Subtract, 5: Sleep, 6: Read, 7: Write, 8: For (only if depth < 3 and remainingCommands > 2)
     switch (type) {
         case 1: {
             // PRINT: unless specified in the test case, the “msg” should always be “Hello world from <process_name>!”
@@ -267,12 +276,31 @@ GeneratedCommand generateRandomCommand(const string& name, int depth, int& remai
             return {make_shared<SubtractCommand>(dest, op1, op2), 1};
         }
         case 5: {
-            // SLEEP: random sleep ticks between 1 and 10
-            uint8_t ticks = getRandomInt(1, 10); // Random sleep ticks between 1 and 10
+            // SLEEP: random sleep ticks between 1 and 5
+            uint8_t ticks = getRandomInt(1, 5); // Random sleep ticks between 1 and 5
             remainingCommands--;
             return {make_shared<SleepCommand>(ticks), 1};
         }
         case 6: {
+            // READ: reads a value from memory at a specific address and stores it in a variable
+            uint32_t address = generateRandomAddress(memoryUsage);
+            std::string varName = "var" + to_string(varId++); // variable to store the result
+            remainingCommands--;
+            return {make_shared<MemoryCommand>(MemoryCommand::Operation::READ, memManager, address, varName, Operand{}), 1};
+        }
+        case 7: {
+            // WRITE: writes a value to memory at a specific address from a variable or literal
+            uint32_t address = generateRandomAddress(memoryUsage);
+            Operand source;
+            if (getRandomInt(1, 2) == 1) {
+                source = std::string("var") + std::to_string(getRandomInt(1, varId - 1)); // random variable 
+            } else {
+                source = static_cast<uint16_t>(getRandomInt(0, 500)); // random literal value
+            }
+            remainingCommands--;
+            return {make_shared<MemoryCommand>(MemoryCommand::Operation::WRITE, memManager, address, "", source), 1};
+        }
+        case 8: {
             // FOR: loop [1, 3] random commands for [2, 5] iterations (can be nested up to 3 times) 
             int before = remainingCommands;
 
@@ -285,7 +313,7 @@ GeneratedCommand generateRandomCommand(const string& name, int depth, int& remai
                 std::vector<std::shared_ptr<ICommand>> instructions;
                 int insCount = 0;
                 for (int i = 0; i < bodySize; i++) {
-                    GeneratedCommand cmd = generateRandomCommand(name, depth + 1, remainingCommands);
+                    GeneratedCommand cmd = generateRandomCommand(name, depth + 1, remainingCommands, memoryUsage, memManager);
                     instructions.push_back(cmd.command);
                     insCount += cmd.instructionCount;
                 }
@@ -310,7 +338,7 @@ GeneratedCommand generateRandomCommand(const string& name, int depth, int& remai
 
             // Not enough space for instructions, make a different command
             remainingCommands = before;
-            return generateRandomCommand(name, depth, remainingCommands);
+            return generateRandomCommand(name, depth, remainingCommands, memoryUsage, memManager);
             
         }
     }
@@ -319,11 +347,11 @@ GeneratedCommand generateRandomCommand(const string& name, int depth, int& remai
 }
 
 // Randomly generates numCommands number of commands for a process
-shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands, long long memoryUsage = 0) {
+shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands, long long memoryUsage = 0, MemoryManager* memManager = nullptr) {
     int remaining = numCommands;
     auto p = make_shared<Process>(pid, "screen", name, memoryUsage);
     while (remaining > 0) {
-        GeneratedCommand cmd = generateRandomCommand(name, 0, remaining);
+        GeneratedCommand cmd = generateRandomCommand(name, 0, remaining, memoryUsage, memManager);
         p->addCommand(cmd.command);
     }
     return p;
@@ -331,7 +359,7 @@ shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands, l
 
 int processesCreated = 0; // for testing
 // Continuously generate dummy processes every X CPU ticks until scheduler-stop is called. Frequency can be set in config.txt
-void scheduler_start(ProcessScheduler& scheduler, Config config) {
+void scheduler_start(ProcessScheduler& scheduler, Config config, MemoryManager* memManager = nullptr) {
     if (generating) {
         cout << "Process generation is already running." << endl;
         return;
@@ -340,13 +368,13 @@ void scheduler_start(ProcessScheduler& scheduler, Config config) {
     generating = true;
     processesCreated = 0;
 
-    generatorThread = std::thread([&scheduler, config]() {
+    generatorThread = std::thread([&scheduler, config, memManager]() {
         int coreID = 0;
         while (generating) {
             int numCommands = getRandomInt(config.minIns, config.maxIns);
             int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
             string name = string("process") + (pidCounter < 10 ? "0" : "") + to_string(pidCounter);
-            auto newProcess = makeProcess(pidCounter++, name, numCommands, memPerProc);
+            auto newProcess = makeProcess(pidCounter++, name, numCommands, memPerProc, memManager);
             {
                 lock_guard<mutex> lock(processListMutex);
                 processList.push_back(newProcess);
@@ -523,12 +551,12 @@ int main() {
         }
         };
 
-    commandMap["scheduler-start"] = [&scheduler, &config]() {
+    commandMap["scheduler-start"] = [&scheduler, &config, &memManager]() {
         if (!scheduler) {
             cout << "Scheduler not initialized" << endl;
             return;
         }
-        scheduler_start(*scheduler, config);
+        scheduler_start(*scheduler, config, memManager.get());
         };
 
     commandMap["scheduler-stop"] = [&scheduler]() {
@@ -638,7 +666,7 @@ int main() {
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
                 int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
 
-                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memPerProc);
+                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memPerProc, memManager.get());
                 {   // lock when adding a new process
                     lock_guard<mutex> lock(processListMutex);
                     processList.push_back(newProcess);
