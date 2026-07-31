@@ -151,15 +151,26 @@ void MemoryManager::writeBackingStore() const {
 
 void MemoryManager::deallocate(Process* process) {
     std::lock_guard<std::mutex> lock(memMutex);
-    
+
+    bool flushed = false;
+
     for(auto& pte : process->getPageTable()){
         if(pte.valid){
+            Frame& f = frames[pte.frameIndex];
+
+            backingStore[{process->getPID(), f.pageNumber}] = f.data;
+            flushed = true;
+
             frames[pte.frameIndex].occupied = false;
             frames[pte.frameIndex].owner = nullptr;
             frames[pte.frameIndex].pageNumber = -1;
             pte.valid = false;
             pte.frameIndex = -1;
         }
+    }
+
+    if (flushed) {
+        writeBackingStore();
     }
 }
 
