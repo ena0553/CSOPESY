@@ -526,7 +526,7 @@ int main() {
         if (initialize(config)) {
             // create the memory manager
             int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
-			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFramem);
+			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame);
 
             // create the scheduler
             scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec, memManager.get());
