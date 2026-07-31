@@ -44,6 +44,10 @@ atomic<long long> tickCounter = 0;
 atomic<bool> cpuRunning = false;
 thread tickThread;
 
+// cpu tick counters
+atomic<long long> activeCpuTicks = 0;
+atomic<long long> idleCpuTicks = 0;
+
 // global generator thread for generating process in scheduler-start
 atomic<bool> generating = false;
 thread generatorThread;
@@ -189,14 +193,14 @@ void process_smi(ProcessScheduler& scheduler, shared_ptr<Process>& process)
 // vmstat command
 void vmstat(MemoryManager* memManager = nullptr)
 {
-    cout << memManager->getTotalMemory() << "total memory" << endl;
-	cout << memManager->getUsedMemory() << "used memory" << endl;
-	cout << memManager->getFreeMemory() << "free memory" << endl;
-	//cout << getIdleCpuTicks() << "idle cpu ticks" << endl; // not implemented yet
-	//cout << getActiveCpuTicks() << "active cpu ticks" << endl; // not implemented yet
-	//cout << getTotalCpuTicks() << "total cpu ticks" << endl; // not implemented yet
-	cout << memManager->getPagedIn() << "pages paged in" << endl;
-    cout << memManager->getPagedOut() << "pages paged out" << endl;
+    cout << memManager->getTotalMemory() << " total memory" << endl;
+	cout << memManager->getUsedMemory() << " used memory" << endl;
+	cout << memManager->getFreeMemory() << " free memory" << endl;
+	cout << idleCpuTicks.load() << " idle cpu ticks" << endl; // not sure if it means all cores are idle at a time? or per core? will probably need changing
+	cout << activeCpuTicks.load() << " active cpu ticks" << endl; // is counter per core
+	cout << idleCpuTicks.load() + activeCpuTicks.load() << " total cpu ticks" << endl; // sum of prev two. not sure if same as global tick counter?
+	cout << memManager->getPagedIn() << " pages paged in" << endl;
+    cout << memManager->getPagedOut() << " pages paged out" << endl;
 }
 
 // Helper: get a random integer between minimum instructions and maximum instructions
@@ -598,6 +602,22 @@ int main() {
         cout << "CPU Utilization Report generated (report-util.txt)." << endl;
         };
 
+	commandMap["process-smi"] = [&scheduler]() {
+		if (!scheduler) {
+			cout << "Scheduler not initialized" << endl;
+			return;
+		}
+		// MCO2 functionality here
+		};
+
+	commandMap["vmstat"] = [&memManager]() {
+		if (!memManager) {
+			cout << "Memory Manager not initialized" << endl;
+			return;
+		}
+		vmstat(memManager.get());
+		};
+
     commandMap["screen -ls"] = [&scheduler]() {
         if (!scheduler) {
             cout << "Scheduler not initialized" << endl;
@@ -617,6 +637,8 @@ int main() {
         cout << "  scheduler-start     - Start process generation\n";
         cout << "  scheduler-stop      - Stop process generation\n";
         cout << "  report-util         - Report CPU utilization\n";
+        cout << "  process-smi         - Summarized view of memory usage and a list of processes\n";
+        cout << "  vmstat              - Detailed view of the processes, memory, pages\n";
         cout << "  screen -ls          - List running and finished processes\n";
         cout << "  screen -s <name>    - Start a new process with the given name\n";
         cout << "  screen -c <name> <mem> \"<instrs>\" - Create a process with custom instructions\n";

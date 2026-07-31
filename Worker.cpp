@@ -7,6 +7,8 @@
 #include <iomanip>
 
 extern atomic<long long> tickCounter;
+extern atomic <long long> activeCpuTicks;
+extern atomic <long long> idleCpuTicks;
 extern vector<shared_ptr<Process>> processList;
 extern mutex processListMutex;
 extern vector<shared_ptr<Process>> finishedProcessList;
@@ -85,6 +87,7 @@ void Worker::run(){
         }
 
         if(!process){
+            idleCpuTicks++;
             this_thread::sleep_for(chrono::milliseconds(10)); // idle wait
             continue;
         }
@@ -122,6 +125,7 @@ void Worker::run(){
                 }
                 try{
                     process->executeNextCommand();
+                    activeCpuTicks++;
                 } catch(const AccessViolation& e){
                     process->setViolation(e.address(), getCurrentTimestamp());
                     process->setProcessState(Process::TERMINATED);
@@ -182,6 +186,7 @@ void Worker::run(){
 
                 try{
                     process->executeNextCommand();
+                    activeCpuTicks++;
                 } catch (const AccessViolation& e){
                     process->setViolation(e.address(), getCurrentTimestamp());
                     process->setProcessState(Process::TERMINATED);
