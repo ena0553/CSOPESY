@@ -11,7 +11,7 @@
 class Process
 {
 public:
-    Process(int pid, const std::string& type, const std::string& name, long long memoryUsage); // constructor
+    Process(int pid, const std::string& type, const std::string& name, long long memoryUsage, long long frameSize); // constructor
     ~Process(); // destructor to close log file
 
     enum ProcessState // process's state
@@ -21,6 +21,21 @@ public:
         WAITING,
         TERMINATED,
     };
+
+    // page table
+    struct PageTableEntry
+    {
+        bool valid = false;
+        int frameIndex = -1;
+    };
+
+    // vector of pages per process
+    std::vector <PageTableEntry> pageTable;
+    long long frameSize = 0;
+
+    bool violated = false;
+    uint32_t violationAddress = 0;
+    std::string violationTimestamp;
 
     // --- State management ---
     void setProcessState(ProcessState state);
@@ -49,15 +64,23 @@ public:
     long long getWakeTick() const; // get the remaining sleep ticks
     long long getNextAvailableTick() const;
     SymbolTable& getSymbolTable(); // access this process's variable store
-    bool isInMemory() const; // check if the process is in memory
-    int getStartFrame() const; // get the starting frame index
+
+    // paging getters
+    std::vector<PageTableEntry>& getPageTable();
+    int getNumPages() const;
+
+    //track access violation
+    void setViolation(uint32_t address, const std::string& timestamp);
+    bool hasViolated() const;
+    uint32_t getViolationAddress() const;
+    std::string getViolationTimestamp() const;
 
     // --- Setters ---
     void setCpuCoreID(int coreID);
     void setWakeTick(long long tick); // set the remaining sleep ticks
     void setNextAvailableTick(long long tick);
-    void setInMemory(bool inMemory); // set whether the process is in memory or not
-    void setStartFrame(int frame); // set the starting frame index
+
+
 private:
     int pid;                    // process ID
     std::string type;           // process type (e.g. "screen")

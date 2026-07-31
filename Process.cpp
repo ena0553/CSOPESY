@@ -21,15 +21,21 @@ static std::string getCurrentTimestamp() {
 }
 
 // Constructor
-Process::Process(int pid, const std::string& type, const std::string& name, long long memoryUsage)
+Process::Process(int pid, const std::string& type, const std::string& name, long long memoryUsage, long long frameSize)
     : pid{ pid }, 
     type{ type }, 
     name{ name }, 
     memoryUsage{ memoryUsage }, 
+    frameSize{frameSize},
     currentState{ READY }
 {
     // capture creation time once at construction (used by screen -ls display)
     creationTime = getCurrentTimestamp();
+
+    // calculate number of pages
+    int numPages = static_cast<int>(memoryUsage / frameSize);
+    // make numPages number of PTEs
+    pageTable.assign(numPages, PageTableEntry{});
 }
 
 // Destructor — close the log if it is open
@@ -101,8 +107,17 @@ std::string Process::getCreationTime() const    { return creationTime; }
 std::vector<std::string>& Process::getLogs()    { return logs; }
 long long Process::getWakeTick() const               { return wakeTick.load(); }
 long long Process::getNextAvailableTick() const { return nextAvailableTick; }
-bool Process::isInMemory() const { return inMemory; }
-int Process::getStartFrame() const { return startFrame; }
+
+// paging getters
+std::vector<Process::PageTableEntry>& Process::getPageTable() { 
+    return pageTable; 
+}
+
+int Process::getNumPages() const {
+    return static_cast<int>(pageTable.size());
+}
+
+
 
 // Setters
 void Process::setCpuCoreID(int coreID) {
@@ -117,9 +132,20 @@ void Process::setNextAvailableTick(long long tick) {
 SymbolTable& Process::getSymbolTable() {
     return symbolTable;
 }
-void Process::setInMemory(bool inMemory) {
-    this->inMemory = inMemory;
+
+// paging setters
+void Process::setViolation(uint32_t address, const std::string& timestamp){
+    violated = true;
+    violationAddress = address;
+    violationTimestamp = timestamp;
 }
-void Process::setStartFrame(int frame) {
-    this->startFrame = frame;
+
+bool Process::hasViolated() const{
+    return violated;
+}
+uint32_t Process::getViolationAddress() const{
+    return violationAddress;
+}
+std::string Process::getViolationTimestamp() const{
+    return violationTimestamp;
 }

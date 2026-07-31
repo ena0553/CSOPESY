@@ -350,9 +350,9 @@ GeneratedCommand generateRandomCommand(const string& name, int depth, int& remai
 }
 
 // Randomly generates numCommands number of commands for a process
-shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands, long long memoryUsage = 0, MemoryManager* memManager = nullptr) {
+shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands, long long memoryUsage = 0, long long frameSize = 64, MemoryManager* memManager = nullptr) {
     int remaining = numCommands;
-    auto p = make_shared<Process>(pid, "screen", name, memoryUsage);
+    auto p = make_shared<Process>(pid, "screen", name, memoryUsage, frameSize);
     while (remaining > 0) {
         GeneratedCommand cmd = generateRandomCommand(name, 0, remaining, memoryUsage, memManager);
         p->addCommand(cmd.command);
@@ -377,7 +377,7 @@ void scheduler_start(ProcessScheduler& scheduler, Config config, MemoryManager* 
             int numCommands = getRandomInt(config.minIns, config.maxIns);
             int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
             string name = string("process") + (pidCounter < 10 ? "0" : "") + to_string(pidCounter);
-            auto newProcess = makeProcess(pidCounter++, name, numCommands, memPerProc, memManager);
+            auto newProcess = makeProcess(pidCounter++, name, numCommands, memPerProc, config.memPerFrame, memManager);
             {
                 lock_guard<mutex> lock(processListMutex);
                 processList.push_back(newProcess);
@@ -690,7 +690,7 @@ int main() {
 
                 try
                 {
-                    auto p = make_shared<Process>(pidCounter++, "screen", procName, memSize);
+                    auto p = make_shared<Process>(pidCounter++, "screen", procName, memSize, config.memPerFrame
                     auto cmds = CommandParser::parse(instructionText, memSize, memManager.get());
                     for (auto& c : cmds) p->addCommand(c);
 
@@ -734,7 +734,7 @@ int main() {
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
                 int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
 
-                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memPerProc, memManager.get());
+                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memPerProc, config.memPerFrame, memManager.get());
                 {   // lock when adding a new process
                     lock_guard<mutex> lock(processListMutex);
                     processList.push_back(newProcess);
