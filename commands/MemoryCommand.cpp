@@ -24,7 +24,6 @@ ICommand::CommandType MemoryCommand::getType() const {
 }
 
 void MemoryCommand::execute(Process& process) {
-    try {
         if (operation == Operation::READ) {
             uint16_t value = memoryManager->read(&process, address);
             bool stored = process.getSymbolTable().set(variable, value);
@@ -39,9 +38,6 @@ void MemoryCommand::execute(Process& process) {
             process.log("WRITE to address " + std::to_string(address) + ": " + std::to_string(valueToWrite));
         }
         process.incrementCommandCounter();
-    } catch (const std::exception& e) {
-        process.log("Memory operation failed: " + std::string(e.what()));
-    }
 }
 
 std::string MemoryCommand::toString() const {
