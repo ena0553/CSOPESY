@@ -192,9 +192,9 @@ void vmstat(MemoryManager* memManager = nullptr)
     cout << memManager->getTotalMemory() << "total memory" << endl;
 	cout << memManager->getUsedMemory() << "used memory" << endl;
 	cout << memManager->getFreeMemory() << "free memory" << endl;
-	//cout << getIdleCpuTicks() << "idle cpu ticks" << endl; // not implemented yet in MemoryManager.cpp
-	//cout << getActiveCpuTicks() << "active cpu ticks" << endl; // not implemented yet in MemoryManager.cpp
-	//cout << getTotalCpuTicks() << "total cpu ticks" << endl; // not implemented yet in MemoryManager.cpp
+	//cout << getIdleCpuTicks() << "idle cpu ticks" << endl; // not implemented yet
+	//cout << getActiveCpuTicks() << "active cpu ticks" << endl; // not implemented yet
+	//cout << getTotalCpuTicks() << "total cpu ticks" << endl; // not implemented yet
 	cout << memManager->getPagedIn() << "pages paged in" << endl;
     cout << memManager->getPagedOut() << "pages paged out" << endl;
 }
