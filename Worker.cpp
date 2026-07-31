@@ -1,7 +1,10 @@
 #include "Worker.h"
 #include <iostream>
 #include <algorithm>
-
+#include <chrono>
+#include <ctime>
+#include <sstream>
+#include <iomanip>
 
 extern atomic<long long> tickCounter;
 extern vector<shared_ptr<Process>> processList;
@@ -13,6 +16,21 @@ Worker::Worker(int coreId, int quantumCycles, bool isRR, int delay, MemoryManage
     : coreId(coreId), quantumCycles(quantumCycles), isRR(isRR), delay(delay), memManager(memManager) {}
 
 Worker::~Worker() { stop(); }
+
+// Helper: get the current time as a formatted string "(MM/DD/YYYY HH:MM:SSAM)"
+static std::string getCurrentTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+    std::ostringstream oss;
+    oss << std::put_time(&tm, "(%m/%d/%Y %I:%M:%S%p)");
+    return oss.str();
+}
 
 // start the thread
 void Worker::start(){
@@ -72,16 +90,6 @@ void Worker::run(){
         }
         
         // check if the process is in memory, if not, attempt to allocate it
-        if(!process->isInMemory()){
-            bool allocated = memManager->allocate(process.get());
-            if(!allocated){
-                lock_guard<mutex> lock(queueMutex);
-                // push back to the tail of the RQ if allocation failed
-                process->setProcessState(Process::READY);
-                queue.push(process);
-                continue;
-            }
-        }
 
         {
             lock_guard<mutex> lock(currentProcessMutex);
@@ -112,7 +120,27 @@ void Worker::run(){
                 if (now < process->getNextAvailableTick()) {
                     continue;
                 }
-                process->executeNextCommand();
+                try{
+                    process->executeNextCommand();
+                } catch(const AccessViolation& e){
+                    process->setViolation(e.address(), getCurrentTimestamp());
+                    process->setProcessState(Process::TERMINATED);
+                    memManager->deallocate(process.get());
+
+                    {
+                        lock_guard<mutex> lock(finishedProcessListMutex);
+                        finishedProcessList.push_back(process);
+                    }
+                    {
+                        lock_guard<mutex> lock(processListMutex);
+                        processList.erase(remove(processList.begin(), processList.end(), process), processList.end());
+                    }
+                    {
+                        lock_guard<mutex> lock(currentProcessMutex);
+                        currentProcess = nullptr;
+                    }
+                    break;
+                }
 
                 if(process->getState() == Process::WAITING) { // sleep command
                     if (process->isFinished())
@@ -152,7 +180,28 @@ void Worker::run(){
                     continue; // wait until delay-per-exec is done
                 }
 
-                process->executeNextCommand();
+                try{
+                    process->executeNextCommand();
+                } catch (const AccessViolation& e){
+                    process->setViolation(e.address(), getCurrentTimestamp());
+                    process->setProcessState(Process::TERMINATED);
+                    memManager->deallocate(process.get());
+
+                    {
+                        lock_guard<mutex> lock(finishedProcessListMutex);
+                        finishedProcessList.push_back(process);
+                    }
+                    {
+                        lock_guard<mutex> lock(processListMutex);
+                        processList.erase(remove(processList.begin(), processList.end(), process), processList.end());
+                    }
+                    {
+                        lock_guard<mutex> lock(currentProcessMutex);
+                        currentProcess = nullptr;
+                    }
+                    break;
+                }
+
                 process->setNextAvailableTick(now + delay);
                 if (process->getState() == Process::WAITING) { // handle waiting (sleeping) processes
                     if (process->isFinished())

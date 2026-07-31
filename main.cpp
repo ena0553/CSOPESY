@@ -526,7 +526,7 @@ int main() {
         if (initialize(config)) {
             // create the memory manager
             int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
-			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame, memPerProc);
+			memManager = make_unique<MemoryManager>(config.maxOverallMem, config.memPerFrame);
 
             // create the scheduler
             scheduler = make_unique<ProcessScheduler>(config.numCpu, config.scheduler, config.quantumCycles, config.delayPerExec, memManager.get());
@@ -538,11 +538,6 @@ int main() {
                 while(cpuRunning){
                     tickCounter++;
                     this_thread::sleep_for(chrono::milliseconds(100));
-
-                    if (tickCounter % config.quantumCycles == 0)
-                    {
-                        memManager->printToFile(tickCounter.load());
-                    }
                 }
             });
 
@@ -690,7 +685,7 @@ int main() {
 
                 try
                 {
-                    auto p = make_shared<Process>(pidCounter++, "screen", procName, memSize, config.memPerFrame
+                    auto p = make_shared<Process>(pidCounter++, "screen", procName, memSize, config.memPerFrame);
                     auto cmds = CommandParser::parse(instructionText, memSize, memManager.get());
                     for (auto& c : cmds) p->addCommand(c);
 
