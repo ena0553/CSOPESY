@@ -7,6 +7,8 @@
 #include <iomanip>
 #include <sstream>
 #include <ctime>
+#include <algorithm>
+#include <fstream>
 
 // Helper: get the current time as a formatted string "(MM/DD/YYYY HH:MM:SSAM)"
 static std::string getCurrentTimestamp() {
@@ -23,204 +25,200 @@ static std::string getCurrentTimestamp() {
     return oss.str();
 }
 
-MemoryManager::MemoryManager(long long totalMemory, long long frameSize, long long memPerProc)
-    : totalMemory(totalMemory), frameSize(frameSize), memPerProc(memPerProc) {
+// make the memory manager
+MemoryManager::MemoryManager(long long totalMemory, long long frameSize)
+    : totalMemory(totalMemory), frameSize(frameSize) {
     // Initialize memory blocks
     totalFrames = totalMemory / frameSize;
-    framesPerProcess = memPerProc / frameSize;
-    memory.resize(totalFrames);
-    for (auto& block : memory) {
-        block.process = nullptr;
-        block.isValid = true; // Initially, all blocks are free
-        block.data.resize(frameSize / sizeof(uint16_t), 0); // Initialize data to zero
+    //resize frames list based frame size
+    frames.resize(totalFrames);
+    
+    for (auto& frame : frames) {
+        frame.occupied = false;     //set frames to unoccupied
+        frame.owner = nullptr;
+        frame.pageNumber = -1;
+        frame.lastUsedTick = 0;
+        frame.data.assign(frameSize / sizeof(uint16_t), 0);
     }
 }
 
-bool MemoryManager::allocate(Process* process) {
-    std::lock_guard<std::mutex> lock(memMutex);
-    if (framesPerProcess > memory.size()) return false;
-    for (size_t i = 0; i <= memory.size() - framesPerProcess; ++i) {
-        bool canAllocate = true;
-        for (size_t j = 0; j < framesPerProcess; ++j) {
-            if (!memory[i + j].isValid) {
-                canAllocate = false;
-                break;
-            }
-        }
-        if (canAllocate) {
-            for (size_t j = 0; j < framesPerProcess; ++j) {
-                memory[i + j].process = process;
-                memory[i + j].isValid = false;
-            }
-            process->setInMemory(true); // Mark the process as in memory
-            process->setStartFrame(static_cast<int>(i)); // Set the starting frame index
-            return true; // Allocation successful
+// iterate thru frames to find an unoccupied one
+int MemoryManager::findFreeFrame() const{
+    for (size_t i = 0 ; i < frames.size() ; ++i){
+        if(!frames[i].occupied){
+            return static_cast<int>(i);
         }
     }
-    return false; // Not enough contiguous free frames
+
+    return -1;
 }
+
+// evicts the least recently used data out of memory/the frame list
+int MemoryManager::LRUreplacement(){
+    int evicted = 0;
+
+    //checks for LRU frame
+    for(size_t i  = 1 ; i < frames.size() ; ++i){
+        if(frames[i].lastUsedTick < frames[evicted].lastUsedTick){
+            evicted = static_cast<int>(i);
+        }
+    }
+
+    Frame& f = frames[evicted];
+    
+    // writes it to the backing store
+    backingStore[{f.owner->getPID(), f.pageNumber}]  = f.data;
+    writeBackingStore();
+
+    // frame that had a removal is now unoccupied
+    f.owner->getPageTable()[f.pageNumber] = Process::PageTableEntry{};
+    f.occupied = false;
+    f.owner = nullptr;
+    f.pageNumber = -1;
+    ++pagedOut;
+
+    return evicted;
+}
+
+// loads a page from the backingstore
+void MemoryManager::loadPage(Process* process, int pageNum, int frameIndex){
+    Frame& f = frames[frameIndex];
+    f.occupied = true;
+    f.owner = process;
+    f.pageNumber = pageNum;
+    f.lastUsedTick = globalTick;
+
+    auto it = backingStore.find({process->getPID(), pageNum});
+    if(it != backingStore.end()){
+        f.data = it->second;
+    }
+    else {
+        std::fill(f.data.begin(), f.data.end(), 0);
+    }
+
+    process->getPageTable()[pageNum] = Process::PageTableEntry{true, frameIndex};
+}
+
+void MemoryManager::ensurePageResident(Process* process, uint32_t address){
+    std::lock_guard<std::mutex> lock(memMutex);
+
+    //checks if the address is beyond the memory usage allowed
+    if (address >= static_cast<uint32_t>(process->getMemoryUsage())){
+        throw AccessViolation(address);
+    }
+
+    int pageNum = static_cast<int>(address / frameSize);
+    auto& pageTable = process->getPageTable();
+    auto& pageTableEntry = pageTable[pageNum];
+
+    ++globalTick;
+
+    // checks if given PTE is unoccupied and updates its latest use tick
+    if(pageTableEntry.valid) {
+        frames[pageTableEntry.frameIndex].lastUsedTick = globalTick;
+        return;
+    }
+
+    // looks for a free frame, if none, perform page fault
+    int freeFrame = findFreeFrame();
+    if(freeFrame == -1){
+        freeFrame = LRUreplacement();
+    }
+
+    // load backing store page
+    loadPage(process, pageNum, freeFrame);
+    ++pagedIn;
+}
+
+// writes to the backing store file
+void MemoryManager::writeBackingStore() const {
+    std::ofstream outFile("csopesy-backing-store.txt");
+    
+    if(!outFile.is_open()) return;
+
+    for(const auto& [key, data] : backingStore){
+        outFile << "pid=" << key.first << " page=" << key.second << " data=";
+        for(size_t i = 0 ; i < data.size() ; ++i){
+            outFile << data[i];
+            if( i + 1 < data.size()){
+                outFile << ",";
+            }
+        }
+        outFile << "\n";
+    }
+}
+
 
 void MemoryManager::deallocate(Process* process) {
     std::lock_guard<std::mutex> lock(memMutex);
-    int start = process->getStartFrame();
-
-    if (start == -1) {
-        return; // Process is not in memory
-    }
-
-    for (size_t i = start; i < start + framesPerProcess && i < memory.size(); ++i) {
-        if (memory[i].process == process) {
-            memory[i].process = nullptr;
-            memory[i].isValid = true;
+    
+    for(auto& pte : process->getPageTable()){
+        if(pte.valid){
+            frames[pte.frameIndex].occupied = false;
+            frames[pte.frameIndex].owner = nullptr;
+            frames[pte.frameIndex].pageNumber = -1;
+            pte.valid = false;
+            pte.frameIndex = -1;
         }
     }
-
-    process->setInMemory(false); // Mark the process as not in memory
-    process->setStartFrame(-1); // Reset the starting frame index
 }
 
-uint16_t MemoryManager::read(Process* process, uint32_t address) const {
+uint16_t MemoryManager::read(Process* process, uint32_t address)  {
+    //checks if there is a value at that address
+    ensurePageResident(process, address);
+
     std::lock_guard<std::mutex> lock(memMutex);
-    int startFrame = process->getStartFrame();
-    if (!process->isInMemory() || startFrame == -1) {
-        throw std::runtime_error("Process is not in memory");
-    }
+    //calculates location
+    int pageNum = static_cast<int>(address/frameSize);
 
-    if (address + sizeof(uint16_t) > memPerProc) {
-        throw std::out_of_range("Address out of bounds for this process");
-    }
+    int frameIndex = process->getPageTable()[pageNum].frameIndex;
 
-    uint32_t frameOffset = address / frameSize;
-    uint32_t offsetWithinFrame = address % frameSize;
+    uint32_t offset = address % frameSize;
 
-    if (offsetWithinFrame % sizeof(uint16_t) != 0) {
-        throw std::runtime_error("Address is not aligned to 2 bytes");
-    }
-
-
-    uint32_t blockIndex = startFrame + frameOffset;
-    if (blockIndex >= memory.size() || memory[blockIndex].process != process) {
-        throw std::runtime_error("Invalid memory access");
-    }
-
-    return memory[blockIndex].data[offsetWithinFrame / sizeof(uint16_t)];
+    // returns data found
+    return frames[frameIndex].data[offset / sizeof(uint16_t)];
 }
 
 void MemoryManager::write(Process* process, uint32_t address, uint16_t value) {
+    // check if in memory
+    ensurePageResident(process, address);
+
     std::lock_guard<std::mutex> lock(memMutex);
-    int startFrame = process->getStartFrame();
-    if (!process->isInMemory() || startFrame == -1) {
-        throw std::runtime_error("Process is not in memory");
-    }
+    //find the address to write in
+    int pageNum = static_cast<int>(address/frameSize);
+    int frameIndex = process->getPageTable()[pageNum].frameIndex;
+    uint32_t offset = address % frameSize;
 
-    if (address + sizeof(uint16_t) > memPerProc) {
-        throw std::out_of_range("Address out of bounds for this process");
-    }
-
-    uint32_t frameOffset = address / frameSize;
-    uint32_t offsetWithinFrame = address % frameSize;
-
-    if (offsetWithinFrame % sizeof(uint16_t) != 0) {
-        throw std::runtime_error("Address is not aligned to 2 bytes");
-    }
-
-    uint32_t blockIndex = startFrame + frameOffset;
-    if (blockIndex >= memory.size() || memory[blockIndex].process != process) {
-        throw std::runtime_error("Invalid memory access");
-    }
-
-    memory[blockIndex].data[offsetWithinFrame / sizeof(uint16_t)] = value;
+    frames[frameIndex].data[offset / sizeof(uint16_t)]  = value;
 }
 
 int MemoryManager::getProcessInMemory() const {
     std::lock_guard<std::mutex> lock(memMutex);
-    int count = 0;
-    for (const auto& block : memory) {
-        if (!block.isValid && block.process != nullptr) {
-            ++count;
-        }
-    }
-    return count / framesPerProcess; // Return the number of processes currently in memory
-}
+    std::vector<Process*> inMem;
 
-long long MemoryManager::getExternalFragmentation() const {
-    std::lock_guard<std::mutex> lock(memMutex);
-    size_t currentRun = 0;
-    size_t fragmentedFrames = 0;
-
-    for (const auto& block : memory) {
-        if (block.isValid) {
-            ++currentRun;
-        } else {
-            if (currentRun > 0 && currentRun < framesPerProcess) {
-                fragmentedFrames += currentRun;
+    for (const auto& f : frames) {
+        if(f.occupied && f.owner){
+            if(std::find(inMem.begin(), inMem.end(), f.owner) == inMem.end()){
+                inMem.push_back(f.owner);
             }
-            currentRun = 0;
+
         }
     }
-
-    // Handle a free run at the end of memory
-    if (currentRun > 0 && currentRun < framesPerProcess) {
-        fragmentedFrames += currentRun;
-    }
-
-    return static_cast<long long>(fragmentedFrames * frameSize);
+    return static_cast<int>(inMem.size());
 }
+
 
 void MemoryManager::printMemoryState() const {
     std::lock_guard<std::mutex> lock(memMutex);
     std::cout << "---end--- = " << totalMemory << "\n\n";
 
-    for (int i = static_cast<int>(memory.size()) - framesPerProcess; i >= 0 ; i -= framesPerProcess) {
-        if (memory[i].isValid || memory[i].process == nullptr) {
-            continue; // Skip blocks without a process
-        }
-
-        const Process* process = memory[i].process;
-
-        long long startAddress = static_cast<long long>(i) * frameSize;
-        long long endAddress = startAddress + memPerProc;
-    
-        std::cout << endAddress << "\n";
-        std::cout << process->getName() << "\n";
-        std::cout << startAddress << "\n\n";
-
+    for (int i = static_cast<int>(frames.size()) - 1; i >= 0; --i) {
+        if (!frames[i].occupied || !frames[i].owner) continue;
+        long long startAddr = static_cast<long long>(i) * frameSize;
+        long long endAddr = startAddr + frameSize;
+        std::cout << endAddr << "\n" << frames[i].owner->getName()
+                   << " (page " << frames[i].pageNumber << ")\n"
+                   << startAddr << "\n\n";
     }
-
     std::cout << "---start--- = 0\n";
-}
-
-void MemoryManager::printToFile(long long quantumCycle) const
-{
-    std::filesystem::create_directories("snapshots");
-	std::ofstream outFile("snapshots\\memory_stamp_" + std::to_string(quantumCycle) + ".txt");
-
-    if (!outFile.is_open()) {
-        return;
-    }
-
-    outFile << "Timestamp: " << getCurrentTimestamp() << "\n";
-    outFile << "Number of processes in memory: " << getProcessInMemory() << "\n";
-    outFile << "Total external fragmentation in KB: " << getExternalFragmentation() << "\n";
-    
-    std::lock_guard<std::mutex> lock(memMutex);
-    outFile << "---end--- = " << totalMemory << "\n\n";
-
-    for (int i = static_cast<int>(memory.size()) - framesPerProcess; i >= 0; i -= framesPerProcess) {
-        if (memory[i].isValid || memory[i].process == nullptr) {
-            continue; // Skip blocks without a process
-        }
-
-        const Process* process = memory[i].process;
-
-        long long startAddress = static_cast<long long>(i) * frameSize;
-        long long endAddress = startAddress + memPerProc;
-
-        outFile << endAddress << "\n";
-        outFile << process->getName() << "\n";
-        outFile << startAddress << "\n\n";
-
-    }
-
-    outFile << "---start--- = 0\n";
 }
