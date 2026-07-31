@@ -217,6 +217,24 @@ int MemoryManager::getProcessInMemory() const {
     return static_cast<int>(inMem.size());
 }
 
+long long MemoryManager::getUsedMemory() const {
+	std::lock_guard<std::mutex> lock(memMutex);
+
+	long long usedMemory = 0;
+
+	for (const auto& frame : frames) {
+		if (frame.occupied) {
+			usedMemory += frameSize;
+		}
+	}
+	return usedMemory;
+}
+
+long long MemoryManager::getFreeMemory() const
+{
+	return totalMemory - getUsedMemory();
+}
+
 
 void MemoryManager::printMemoryState() const {
     std::lock_guard<std::mutex> lock(memMutex);

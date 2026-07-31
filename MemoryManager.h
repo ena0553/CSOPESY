@@ -84,6 +84,7 @@ class MemoryManager {
         long long getTotalMemory() const {
             return totalMemory;
         }
+        long long getFreeMemory() const;
 
         void printMemoryState() const; // Print the current state of memory
 

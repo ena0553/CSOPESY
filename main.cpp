@@ -186,6 +186,19 @@ void process_smi(ProcessScheduler& scheduler, shared_ptr<Process>& process)
 
 }
 
+// vmstat command
+void vmstat(MemoryManager* memManager = nullptr)
+{
+    cout << memManager->getTotalMemory() << "total memory" << endl;
+	cout << memManager->getUsedMemory() << "used memory" << endl;
+	cout << memManager->getFreeMemory() << "free memory" << endl;
+	//cout << getIdleCpuTicks() << "idle cpu ticks" << endl; // not implemented yet in MemoryManager.cpp
+	//cout << getActiveCpuTicks() << "active cpu ticks" << endl; // not implemented yet in MemoryManager.cpp
+	//cout << getTotalCpuTicks() << "total cpu ticks" << endl; // not implemented yet in MemoryManager.cpp
+	cout << memManager->getPagedIn() << "pages paged in" << endl;
+    cout << memManager->getPagedOut() << "pages paged out" << endl;
+}
+
 // Helper: get a random integer between minimum instructions and maximum instructions
 int getRandomInt(int minIns, int maxIns)
 {
