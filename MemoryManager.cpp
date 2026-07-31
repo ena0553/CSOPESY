@@ -99,9 +99,7 @@ void MemoryManager::loadPage(Process* process, int pageNum, int frameIndex){
     process->getPageTable()[pageNum] = Process::PageTableEntry{true, frameIndex};
 }
 
-void MemoryManager::ensurePageResident(Process* process, uint32_t address){
-    std::lock_guard<std::mutex> lock(memMutex);
-
+int MemoryManager::resolveFrameLocked(Process* process, uint32_t address){
     //checks if the address is beyond the memory usage allowed
     if (address >= static_cast<uint32_t>(process->getMemoryUsage())){
         throw AccessViolation(address);
@@ -116,7 +114,7 @@ void MemoryManager::ensurePageResident(Process* process, uint32_t address){
     // checks if given PTE is unoccupied and updates its latest use tick
     if(pageTableEntry.valid) {
         frames[pageTableEntry.frameIndex].lastUsedTick = globalTick;
-        return;
+        return pageTableEntry.frameIndex;
     }
 
     // looks for a free frame, if none, perform page fault
@@ -128,6 +126,13 @@ void MemoryManager::ensurePageResident(Process* process, uint32_t address){
     // load backing store page
     loadPage(process, pageNum, freeFrame);
     ++pagedIn;
+
+    return freeFrame;
+}
+
+void MemoryManager::ensurePageResident(Process* process, uint32_t address){
+    std::lock_guard<std::mutex> lock(memMutex);
+    resolveFrameLocked(process, address);
 }
 
 // writes to the backing store file
@@ -176,28 +181,22 @@ void MemoryManager::deallocate(Process* process) {
 
 uint16_t MemoryManager::read(Process* process, uint32_t address)  {
     //checks if there is a value at that address
-    ensurePageResident(process, address);
-
     std::lock_guard<std::mutex> lock(memMutex);
     //calculates location
-    int pageNum = static_cast<int>(address/frameSize);
 
-    int frameIndex = process->getPageTable()[pageNum].frameIndex;
-
+    int frameIndex = resolveFrameLocked(process, address);
+    
     uint32_t offset = address % frameSize;
-
     // returns data found
     return frames[frameIndex].data[offset / sizeof(uint16_t)];
 }
 
 void MemoryManager::write(Process* process, uint32_t address, uint16_t value) {
-    // check if in memory
-    ensurePageResident(process, address);
 
     std::lock_guard<std::mutex> lock(memMutex);
     //find the address to write in
-    int pageNum = static_cast<int>(address/frameSize);
-    int frameIndex = process->getPageTable()[pageNum].frameIndex;
+    int frameIndex = resolveFrameLocked(process, address);
+
     uint32_t offset = address % frameSize;
 
     frames[frameIndex].data[offset / sizeof(uint16_t)]  = value;

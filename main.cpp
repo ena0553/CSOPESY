@@ -614,7 +614,7 @@ int main() {
         };
 
     bool running = true;
-    commandMap["exit"] = [&running, &scheduler]() {
+    commandMap["exit"] = [&running, &scheduler, &memManager]() {
         cout << "Exiting program." << endl;
         if (generating) {
             generating = false;
@@ -628,6 +628,8 @@ int main() {
             tickThread.join();
         }
         cout << "ticks: " << tickCounter;
+        cout << "pages loaded: " << memManager->getPagedIn();
+        cout << "pages evicted: " << memManager->getPagedOut();
 
         if (scheduler) {
             scheduler->stopScheduler();

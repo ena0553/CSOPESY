@@ -61,6 +61,7 @@ class MemoryManager {
         void loadPage(Process* process, int pageNumber, int frameIndex);
         void writeBackingStore() const;
 
+        int resolveFrameLocked(Process* process, uint32_t address);
 
         public:
         MemoryManager(long long totalMemory, long long frameSize);
