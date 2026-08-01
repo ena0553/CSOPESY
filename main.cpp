@@ -511,7 +511,7 @@ bool initialize(Config& config)
         cout << "Invalid scheduler value in config.txt. Must be \"fcfs\" or \"rr\"." << endl;
         return false;
     }
-    if (config.quantumCycles < 1 || config.quantumCycles > max) {
+    if (config.quantumCycles < 0 || config.quantumCycles > max) {
         cout << "Invalid quantum-cycles value in config.txt. Must be between 1 and 2^32 (4294967296)." << endl;
         return false;
     }
