@@ -199,7 +199,7 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
     cout << "| PROCESS-SMI V01.00 Driver Version: 01.00 |\n";
     cout << "----------------------------------------------\n";
     cout << "CPU-Util: " << (used * 100.0 / totalCores) << "%\n";
-    cout << "Memory Usage: " << memManager->getUsedMemory() << " / " << memManager->getTotalMemory() << "\n"; // FIXME: might need MiB?
+    cout << "Memory Usage: " << memManager->getUsedMemory() / (1048576.0) << "MiB / " << memManager->getTotalMemory() / (1048576.0) << "MiB\n"; // FIXME: might need MiB?
 	cout << "Memory Util: " << (memManager->getUsedMemory() * 100.0 / memManager->getTotalMemory()) << "%\n\n";
 
     cout << "========================================\n";
@@ -210,7 +210,7 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
         for (auto& p : processList) {
             if (p->getState() == Process::RUNNING) {
                 cout << left << setw(12) << p->getName()
-                    << " " << p->getMemoryUsage()
+                    << " " << p->getMemoryUsage() / (1048576.0)
                     << "MiB\n";
             }
         }
