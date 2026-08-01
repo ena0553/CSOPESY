@@ -190,6 +190,34 @@ void process_smi(ProcessScheduler& scheduler, shared_ptr<Process>& process)
 
 }
 
+void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler)
+{
+    int used = scheduler.getBusyCores();
+    int totalCores = scheduler.getnumCores();
+
+    cout << "----------------------------------------\n";
+    cout << "| PROCESS-SMI V01.00 Driver Version: 01.00 |\n";
+    cout << "----------------------------------------\n";
+    cout << "CPU-Util: " << (used * 100.0 / totalCores) << "%\n";
+    cout << "Memory Usage: " << memManager->getUsedMemory() << "/" << memManager->getTotalMemory() << "\n";
+	cout << "Memory Util: " << (memManager->getUsedMemory() * 100.0 / memManager->getTotalMemory()) << "%\n\n";
+
+    cout << "========================================\n";
+    cout << "| Running processes and memory usage: |\n";
+    cout << "----------------------------------------\n";
+    {   // lock when reading processList to avoid sync issues
+        lock_guard<mutex> lock(processListMutex);
+        for (auto& p : processList) {
+            if (p->getState() == Process::RUNNING) {
+                cout << left << setw(12) << p->getName()
+                    << " " << p->getMemoryUsage()
+                    << "MiB\n";
+            }
+        }
+    }
+    cout << "----------------------------------------\n";
+}
+
 // vmstat command
 void vmstat(MemoryManager* memManager = nullptr)
 {
@@ -602,12 +630,12 @@ int main() {
         cout << "CPU Utilization Report generated (report-util.txt)." << endl;
         };
 
-	commandMap["process-smi"] = [&scheduler]() {
+	commandMap["process-smi"] = [&memManager, &scheduler]() {
 		if (!scheduler) {
 			cout << "Scheduler not initialized" << endl;
 			return;
 		}
-		// MCO2 functionality here
+        mainMenu_process_smi(memManager.get(), *scheduler);
 		};
 
 	commandMap["vmstat"] = [&memManager]() {
