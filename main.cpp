@@ -195,15 +195,15 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
     int used = scheduler.getBusyCores();
     int totalCores = scheduler.getnumCores();
 
-    cout << "----------------------------------------\n";
+    cout << "----------------------------------------------\n";
     cout << "| PROCESS-SMI V01.00 Driver Version: 01.00 |\n";
-    cout << "----------------------------------------\n";
+    cout << "----------------------------------------------\n";
     cout << "CPU-Util: " << (used * 100.0 / totalCores) << "%\n";
-    cout << "Memory Usage: " << memManager->getUsedMemory() << "/" << memManager->getTotalMemory() << "\n"; // FIXME: might need MiB?
+    cout << "Memory Usage: " << memManager->getUsedMemory() << " / " << memManager->getTotalMemory() << "\n"; // FIXME: might need MiB?
 	cout << "Memory Util: " << (memManager->getUsedMemory() * 100.0 / memManager->getTotalMemory()) << "%\n\n";
 
     cout << "========================================\n";
-    cout << "| Running processes and memory usage: |\n";
+    cout << "Running processes and memory usage:  \n";
     cout << "----------------------------------------\n";
     {   // lock when reading processList to avoid sync issues
         lock_guard<mutex> lock(processListMutex);
