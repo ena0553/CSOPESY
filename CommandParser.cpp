@@ -9,6 +9,9 @@
 
 #include <stdexcept>
 #include <cctype>
+#include <sstream>
+#include <iostream>
+
 
 std::string CommandParser::trim(const std::string& s)
 {
@@ -80,22 +83,23 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
     if (instr.empty())
         throw std::runtime_error("Empty instruction");
 
-    size_t openParen = instr.find('(');
-    if (openParen == std::string::npos || instr.back() != ')')
-        throw std::runtime_error("Malformed instruction: " + instr);
+    // Print has a different syntax than others (no space between PRINT and the parentheses) so we handle it first
+    if (instr.rfind("PRINT(", 0) == 0){
+        std::string args = instr.substr(5);   // "(...)"
 
-    std::string keyword = trim(instr.substr(0, openParen));
-    std::string argsStr = instr.substr(openParen + 1, instr.size() - openParen - 2);
+        // Remove surrounding parentheses
+        if (!args.empty() && args.front() == '(' && args.back() == ')')
+            args = trim(args.substr(1, args.size() - 2));
 
-    if (keyword == "PRINT")
-    {
-        std::string args = trim(argsStr);
         size_t firstQuote = args.find('"');
         size_t secondQuote = args.find('"', firstQuote + 1);
+
         if (firstQuote == std::string::npos || secondQuote == std::string::npos)
             throw std::runtime_error("PRINT requires a quoted string: " + instr);
 
-        std::string message = args.substr(firstQuote + 1, secondQuote - firstQuote - 1);
+        std::string message =
+            args.substr(firstQuote + 1, secondQuote - firstQuote - 1);
+
         std::string rest = trim(args.substr(secondQuote + 1));
 
         if (rest.empty())
@@ -105,34 +109,73 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
             throw std::runtime_error("PRINT: expected '+' before variable name: " + instr);
 
         std::string varName = trim(rest.substr(1));
+
         if (varName.empty())
             throw std::runtime_error("PRINT: missing variable name after '+': " + instr);
 
         return std::make_shared<PrintCommand>(message, varName);
     }
+    std::stringstream ss(instr);
+
+    std::string keyword;
+    ss >> keyword;
+    
+
+    std::string argsStr;
+    std::getline(ss, argsStr);
+    argsStr = trim(argsStr);
+
+    // if (keyword == "PRINT")
+    // {
+    //     std::string args = trim(argsStr);
+    //     size_t firstQuote = args.find('"');
+    //     size_t secondQuote = args.find('"', firstQuote + 1);
+    //     if (firstQuote == std::string::npos || secondQuote == std::string::npos)
+    //         throw std::runtime_error("PRINT requires a quoted string: " + instr);
+
+    //     std::string message = args.substr(firstQuote + 1, secondQuote - firstQuote - 1);
+    //     std::string rest = trim(args.substr(secondQuote + 1));
+
+    //     if (rest.empty())
+    //         return std::make_shared<PrintCommand>(message);
+
+    //     if (rest[0] != '+')
+    //         throw std::runtime_error("PRINT: expected '+' before variable name: " + instr);
+
+    //     std::string varName = trim(rest.substr(1));
+    //     if (varName.empty())
+    //         throw std::runtime_error("PRINT: missing variable name after '+': " + instr);
+
+    //     return std::make_shared<PrintCommand>(message, varName);
+    // }
 
     if (keyword == "DECLARE")
     {
-        auto parts = splitTopLevel(argsStr, ',');
-        if (parts.size() != 2)
-            throw std::runtime_error("DECLARE requires 2 arguments (name, value): " + instr);
+        std::stringstream ss(argsStr);
+        std::string varName;
+        long val;
 
-        long val = std::stol(trim(parts[1]));
-        if (val < 0 || val > 65535)
-            throw std::runtime_error("DECLARE value out of range: " + instr);
+        if (!(ss >> varName >> val))
+            throw std::runtime_error("DECLARE requires: DECLARE <name> <value>");
+        
+            if (val < 0 || val > 65535)
+            throw std::runtime_error("DECLARE value out of uint16 range");
 
-        return std::make_shared<DeclareCommand>(trim(parts[0]), static_cast<uint16_t>(val));
+        return std::make_shared<DeclareCommand>(varName, static_cast<uint16_t>(val));
     }
 
     if (keyword == "ADD" || keyword == "SUBTRACT")
     {
-        auto parts = splitTopLevel(argsStr, ',');
-        if (parts.size() != 3)
-            throw std::runtime_error(keyword + " requires 3 arguments (dest, op1, op2): " + instr);
+        std::stringstream ss(argsStr);
+        std::string dest;
+        std::string op1Str;
+        std::string op2Str;
 
-        std::string dest = trim(parts[0]);
-        Operand op1 = parseOperand(parts[1]);
-        Operand op2 = parseOperand(parts[2]);
+        if (!(ss >> dest >> op1Str >> op2Str))
+            throw std::runtime_error(keyword + " requires: " + keyword + " <dest> <op1> <op2>");
+
+        Operand op1 = parseOperand(op1Str);
+        Operand op2 = parseOperand(op2Str);
 
         if (keyword == "ADD")
             return std::make_shared<AddCommand>(dest, op1, op2);
@@ -142,7 +185,12 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
 
     if (keyword == "SLEEP")
     {
-        long ticks = std::stol(trim(argsStr));
+        std::stringstream ss(argsStr);
+        long ticks;
+
+        if (!(ss >> ticks))
+            throw std::runtime_error("SLEEP requires: SLEEP <ticks>");
+
         if (ticks < 0 || ticks > 255)
             throw std::runtime_error("SLEEP ticks must be 0-255: " + instr);
         return std::make_shared<SleepCommand>(static_cast<uint8_t>(ticks));
@@ -150,12 +198,14 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
 
     if (keyword == "READ")
     {
-        auto parts = splitTopLevel(argsStr, ',');
-        if (parts.size() != 2)
-            throw std::runtime_error("READ requires 2 arguments (varName, address): " + instr);
+        std::stringstream ss(argsStr);
+        std::string varName;
+        std::string addrStr;
 
-        std::string varName = trim(parts[0]);
-        uint32_t address = static_cast<uint32_t>(std::stoul(trim(parts[1]), nullptr, 0));
+        if (!(ss >> varName >> addrStr))
+            throw std::runtime_error("READ requires: READ <variable> <address>");
+
+        uint32_t address = static_cast<uint32_t>(std::stoul(addrStr, nullptr, 0));
 
         if (static_cast<long long>(address) + 2 > memoryUsage)
             throw std::runtime_error("READ address out of bounds for this process: " + instr);
@@ -165,12 +215,15 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
 
     if (keyword == "WRITE")
     {
-        auto parts = splitTopLevel(argsStr, ',');
-        if (parts.size() != 2)
-            throw std::runtime_error("WRITE requires 2 arguments (address, source): " + instr);
+       std::stringstream ss(argsStr);
+        std::string addrStr;
+        std::string sourceStr;
 
-        uint32_t address = static_cast<uint32_t>(std::stoul(trim(parts[0]), nullptr, 0));
-        Operand source = parseOperand(parts[1]);
+        if (!(ss >> addrStr >> sourceStr))
+            throw std::runtime_error("WRITE requires: WRITE <address> <source>");
+
+        uint32_t address = static_cast<uint32_t>(std::stoul(addrStr, nullptr, 0));
+        Operand source = parseOperand(sourceStr);
 
         if (static_cast<long long>(address) + 2 > memoryUsage)
             throw std::runtime_error("WRITE address out of bounds for this process: " + instr);
@@ -183,33 +236,45 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
         if (depth >= 3)
             throw std::runtime_error("FOR nesting exceeds max depth of 3: " + instr);
 
-        size_t openBracket = argsStr.find('[');
-        size_t closeBracket = argsStr.rfind(']');
-        if (openBracket == std::string::npos || closeBracket == std::string::npos || closeBracket < openBracket)
-            throw std::runtime_error("FOR requires a bracketed instruction list: " + instr);
+        std::stringstream ss(argsStr);
+        std::string countStr;
 
-        std::string body = argsStr.substr(openBracket + 1, closeBracket - openBracket - 1);
-        std::string afterBracket = trim(argsStr.substr(closeBracket + 1));
+        if (!(ss >> countStr))
+        throw std::runtime_error("FOR requires a repeat count: " + instr);
 
-        if (afterBracket.empty() || afterBracket[0] != ',')
-            throw std::runtime_error("FOR requires a repeat count after the instruction list: " + instr);
-
-        long count = std::stol(trim(afterBracket.substr(1)));
+        long count = std::stol(countStr);
         if (count < 1)
             throw std::runtime_error("FOR repeat count must be >= 1: " + instr);
 
+        std::string instructionsStr;
+        std::getline(ss, instructionsStr);
+        instructionsStr = trim(instructionsStr);
+
+        size_t openBracket = instructionsStr.find('[');
+        size_t closeBracket = instructionsStr.rfind(']');
+        if (openBracket == std::string::npos || closeBracket == std::string::npos || closeBracket < openBracket)
+            throw std::runtime_error("FOR requires a bracketed instruction list: " + instr);
+
+        // Everything inside the brackets
+        std::string body = instructionsStr.substr(
+            openBracket + 1,
+            closeBracket - openBracket - 1);
+
+
         auto bodyInstrs = splitTopLevel(body, ';');
+
         if (bodyInstrs.empty())
             throw std::runtime_error("FOR body must contain at least one instruction: " + instr);
 
         std::vector<std::shared_ptr<ICommand>> instructions;
-        for (auto& bi : bodyInstrs)
+
+        for (const auto& bi : bodyInstrs)
             instructions.push_back(parseOne(bi, depth + 1, memoryUsage, memManager));
 
         return std::make_shared<ForCommand>(static_cast<int>(count), instructions);
-    }
+        }
 
-    throw std::runtime_error("Unknown instruction keyword: " + keyword);
+        throw std::runtime_error("Unknown instruction keyword: " + keyword);
 }
 
 std::vector<std::shared_ptr<ICommand>> CommandParser::parse(const std::string& instructionText,

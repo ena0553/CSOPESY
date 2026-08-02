@@ -11,15 +11,15 @@ class MemoryManager;
 // Parses a user-supplied instruction string (used by "screen -c") into ICommand objects.
 //
 // Supported syntax (semicolon-separated top-level instructions, case-sensitive keywords):
-//   DECLARE(varName, value)
-//   ADD(dest, op1, op2)
-//   SUBTRACT(dest, op1, op2)
+//   DECLARE varName, value
+//   ADD dest op1 op2
+//   SUBTRACT dest op1 op2
 //   PRINT("literal text")
 //   PRINT("literal text" + varName)
-//   SLEEP(ticks)                       -- ticks: 0-255
-//   READ(varName, address)             -- address: decimal or 0x hex
-//   WRITE(address, source)             -- source: variable name or literal
-//   FOR([instr1; instr2; ...], count)  -- nestable up to 3 levels deep
+//   SLEEP ticks                      -- ticks: 0-255
+//   READ varName address             -- address: decimal or 0x hex
+//   WRITE address source             -- source: variable name or literal
+//   FOR count [instr1; instr2; ...]   -- nestable up to 3 levels deep
 //
 // Operands (op1/op2/source) may be a literal decimal (0-65535) or a variable name.
 // Throws std::runtime_error with a descriptive message on malformed input.
