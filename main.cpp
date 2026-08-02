@@ -794,6 +794,11 @@ int main() {
                     continue;
                 }
 
+                if (memUsage < 64 || memUsage > 65536 || !isPowerOfTwo(static_cast<int>(memUsage))) {
+                    cout << "Invalid memory size. Must be a power of 2 between 64 and 65536." << endl;
+                    continue;
+                }
+
                 /* new process creation */
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
 
