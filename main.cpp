@@ -124,7 +124,7 @@ void screen_ls(ProcessScheduler& scheduler) {
             cout << left << setw(12) << p->getName()
                 << " " << p->getCreationTime()
                 << "   Finished"
-                << "   " << p->getTotalCommands()
+                << "   " << p->getCommandCounter()
                 << " / " << p->getTotalCommands()
                 << "\n";
         }
@@ -848,6 +848,19 @@ int main() {
                     }
                 }
 
+                // check if process is in finished processes list
+                if (!foundProcess)
+                {
+                    for (auto& p : finishedProcessList)
+                    {
+                        if (p->getName() == screen_r_process)
+                        {
+                            foundProcess = p;
+                            break;
+                        }
+                    }
+                }
+
                 // if process name not found
                 if (!foundProcess)
                 {
@@ -855,12 +868,23 @@ int main() {
                     continue;
                 }
 
-                // if process name not finished execution
+                // if process has violated memory access
+                if (foundProcess->hasViolated()) {
+                    cout << "Process " << screen_r_process << " shut down due to memory access violation error that occurred at " 
+                    << foundProcess->getViolationTimestamp() << ". 0x" << std::hex << std::uppercase << foundProcess->getViolationAddress() << " invalid." << endl;
+                    continue;
+                }
+
+                // if process finished execution
                 if (foundProcess->getState() == Process::TERMINATED)
                 {
                     cout << "Process " << screen_r_process << " not found." << endl;
                     continue;
                 }
+
+                
+
+
 
                 activeProcessInput = foundProcess;
                 screenMode = Mode::SUBSCREEN;

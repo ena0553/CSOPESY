@@ -60,7 +60,7 @@ void Process::executeNextCommand() {
 }
 
 bool Process::isFinished() const {
-    return commandIndex.load() >= commandList.size();
+    return commandIndex.load() >= commandList.size() || hasViolated();
 }
 
 // Logging

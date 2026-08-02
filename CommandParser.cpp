@@ -207,8 +207,8 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
 
         uint32_t address = static_cast<uint32_t>(std::stoul(addrStr, nullptr, 0));
 
-        if (static_cast<long long>(address) + 2 > memoryUsage)
-            throw std::runtime_error("READ address out of bounds for this process: " + instr);
+        // if (static_cast<long long>(address) + 2 > memoryUsage)
+        //     throw std::runtime_error("READ address out of bounds for this process: " + instr);
 
         return std::make_shared<MemoryCommand>(MemoryCommand::Operation::READ, memManager, address, varName, Operand{});
     }
@@ -225,8 +225,8 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
         uint32_t address = static_cast<uint32_t>(std::stoul(addrStr, nullptr, 0));
         Operand source = parseOperand(sourceStr);
 
-        if (static_cast<long long>(address) + 2 > memoryUsage)
-            throw std::runtime_error("WRITE address out of bounds for this process: " + instr);
+        // if (static_cast<long long>(address) + 2 > memoryUsage)
+        //     throw std::runtime_error("WRITE address out of bounds for this process: " + instr);
 
         return std::make_shared<MemoryCommand>(MemoryCommand::Operation::WRITE, memManager, address, "", source);
     }
