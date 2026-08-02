@@ -777,24 +777,27 @@ int main() {
             //
             if (input.find("screen -s ") == 0)
             {
-                screen_s_process = input.substr(string("screen -s ").size()); // process name "screen -s <process name>"
-
                 if (!scheduler) {
                     cout << "Scheduler not initialized" << endl;
                     continue;
                 }
 
-                if (screen_s_process.empty())
-                {
-                    cout << "Usage: screen -s <process name>" << endl;
+                // Extract everything after "screen -s "
+                string args = input.substr(string("screen -s ").size());
+
+                stringstream ss(args);
+                string processName;
+                int memUsage;
+
+                if (!(ss >> processName >> memUsage)) {
+                    cout << "Usage: screen -s <process_name> <process_memory_size>" << endl;
                     continue;
                 }
 
                 /* new process creation */
                 int numCommands = getRandomInt(config.minIns, config.maxIns);
-                int memPerProc = getRandomPowerOfTwo(config.minMemPerProc, config.maxMemPerProc);
 
-                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memPerProc, config.memPerFrame, memManager.get());
+                shared_ptr<Process> newProcess = makeProcess(pidCounter++, screen_s_process, numCommands, memUsage, config.memPerFrame, memManager.get());
                 {   // lock when adding a new process
                     lock_guard<mutex> lock(processListMutex);
                     processList.push_back(newProcess);
