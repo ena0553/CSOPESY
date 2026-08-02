@@ -91,6 +91,8 @@ void MemoryManager::loadPage(Process* process, int pageNum, int frameIndex){
     auto it = backingStore.find({process->getPID(), pageNum});
     if(it != backingStore.end()){
         f.data = it->second;
+        backingStore.erase(it);
+        writeBackingStore();
     }
     else {
         std::fill(f.data.begin(), f.data.end(), 0);
