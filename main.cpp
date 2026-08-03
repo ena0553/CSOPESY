@@ -235,7 +235,7 @@ void vmstat(MemoryManager* memManager = nullptr) // FIXME: might need units
 	cout << activeCpuTicks.load() << " active cpu ticks" << endl; // is counter per core
 	cout << idleCpuTicks.load() + activeCpuTicks.load() << " total cpu ticks" << endl; // sum of prev two. not sure if same as global tick counter?
 	cout << memManager->getPagedIn() << " pages paged in" << endl;
-    cout << memManager->getPagedOut() << " pages paged out" << endl;
+    cout << memManager->getPagedOut() << " pages paged out\n" << endl;
 }
 
 // Helper: get a random integer between minimum instructions and maximum instructions
@@ -589,7 +589,7 @@ int main() {
             tickThread = thread([&config, &memManager](){
                 while(cpuRunning){
                     tickCounter++;
-                    this_thread::sleep_for(chrono::milliseconds(100));
+                    this_thread::sleep_for(chrono::milliseconds(10));
                 }
             });
 

@@ -37,6 +37,7 @@ Process::Process(int pid, const std::string& type, const std::string& name, long
     // calculate number of pages
     int numPages = static_cast<int>(memoryUsage / frameSize);
     // make numPages number of PTEs
+    if (numPages < 1) numPages = 1;
     pageTable.assign(numPages, PageTableEntry{});
 }
 
