@@ -209,8 +209,15 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
         lock_guard<mutex> lock(processListMutex);
         for (auto& p : processList) {
             if (p->getState() == Process::RUNNING) {
+                long long residentBytes = 0;
+                for(auto& pte : p->getPageTable()){
+                    if(pte.valid){
+                        residentBytes += memManager->getFrameSize();
+                    }
+                }
+
                 cout << left << setw(12) << p->getName()
-                    << " " << p->getMemoryUsage() / (1048576.0)
+                    << " " << residentBytes / (1048576.0)
                     << " MiB\n";
             }
         }
