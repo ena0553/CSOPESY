@@ -538,19 +538,19 @@ bool initialize(Config& config)
         cout << "Invalid delay-per-exec value in config.txt. Must be between 0 and 2^32 (4294967296)." << endl;
         return false;
     }
-	if (config.maxOverallMem < 64 || config.maxOverallMem > 65536 || !(isPowerOfTwo(config.maxOverallMem))) {
+	if (config.maxOverallMem < 8 || config.maxOverallMem > 65536 || !(isPowerOfTwo(config.maxOverallMem))) {
 		cout << "Invalid max-overall-mem value in config.txt. Must be between 2^6 (64) and 2^16 (65536) and is a power of 2." << endl;
 		return false;
 	}
-	if (config.memPerFrame < 64 || config.memPerFrame > 65536 || !(isPowerOfTwo(config.memPerFrame))) {
+	if (config.memPerFrame < 8 || config.memPerFrame > 65536 || !(isPowerOfTwo(config.memPerFrame))) {
 		cout << "Invalid mem-per-frame value in config.txt. Must be between 2^6 (64) and 2^16 (65536) and is a power of 2." << endl;
 		return false;
 	}
-	if (config.minMemPerProc < 64 || config.minMemPerProc > 65536 || !(isPowerOfTwo(config.minMemPerProc))) {
+	if (config.minMemPerProc < 8 || config.minMemPerProc > 65536 || !(isPowerOfTwo(config.minMemPerProc))) {
 		cout << "Invalid min-mem-per-proc value in config.txt. Must be between 2^6 (64) and 2^16 (65536) and is a power of 2." << endl;
 		return false;
 	}
-    if (config.maxMemPerProc < 64 || config.maxMemPerProc > 65536 || !(isPowerOfTwo(config.maxMemPerProc))) {
+    if (config.maxMemPerProc < 8 || config.maxMemPerProc > 65536 || !(isPowerOfTwo(config.maxMemPerProc))) {
         cout << "Invalid max-mem-per-proc value in config.txt. Must be between 2^6 (64) and 2^16 (65536) and is a power of 2." << endl;
         return false;
     }
