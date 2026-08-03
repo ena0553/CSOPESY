@@ -1,4 +1,5 @@
 #include "Process.h"
+#include "MemoryManager.h"
 #include <iostream>
 #include <chrono>
 #include <ctime>
@@ -21,13 +22,14 @@ static std::string getCurrentTimestamp() {
 }
 
 // Constructor
-Process::Process(int pid, const std::string& type, const std::string& name, long long memoryUsage, long long frameSize)
+Process::Process(int pid, const std::string& type, const std::string& name, long long memoryUsage, long long frameSize, MemoryManager* memManager)
     : pid{ pid }, 
     type{ type }, 
     name{ name }, 
     memoryUsage{ memoryUsage }, 
     frameSize{frameSize},
-    currentState{ READY }
+    currentState{ READY },
+    memManager{ memManager }
 {
     // capture creation time once at construction (used by screen -ls display)
     creationTime = getCurrentTimestamp();
@@ -130,6 +132,10 @@ void Process::setNextAvailableTick(long long tick) {
     nextAvailableTick = tick;
 }
 SymbolTable& Process::getSymbolTable() {
+    if(memManager) {
+        memManager->ensurePageResident(this, 0);
+    }
+
     return symbolTable;
 }
 

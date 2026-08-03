@@ -1,5 +1,5 @@
 #pragma once
-
+#include "MemoryManager.h"
 #include "commands/ICommand.h"
 #include "SymbolTable.h"
 #include <string>
@@ -11,7 +11,7 @@
 class Process
 {
 public:
-    Process(int pid, const std::string& type, const std::string& name, long long memoryUsage, long long frameSize); // constructor
+    Process(int pid, const std::string& type, const std::string& name, long long memoryUsage, long long frameSize, MemoryManager* memManager); // constructor
     ~Process(); // destructor to close log file
 
     enum ProcessState // process's state
@@ -105,4 +105,5 @@ private:
     std::atomic<long long> wakeTick = 0;
     long long nextAvailableTick = 0;
     SymbolTable symbolTable;     // per-process variable memory
+    MemoryManager* memManager = nullptr;
 };

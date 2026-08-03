@@ -211,7 +211,7 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
             if (p->getState() == Process::RUNNING) {
                 cout << left << setw(12) << p->getName()
                     << " " << p->getMemoryUsage() / (1048576.0)
-                    << "MiB\n";
+                    << " MiB\n";
             }
         }
     }
@@ -397,7 +397,7 @@ GeneratedCommand generateRandomCommand(const string& name, int depth, int& remai
 // Randomly generates numCommands number of commands for a process
 shared_ptr<Process> makeProcess (int pid, const string& name, int numCommands, long long memoryUsage = 0, long long frameSize = 64, MemoryManager* memManager = nullptr) {
     int remaining = numCommands;
-    auto p = make_shared<Process>(pid, "screen", name, memoryUsage, frameSize);
+    auto p = make_shared<Process>(pid, "screen", name, memoryUsage, frameSize, memManager);
     while (remaining > 0) {
         GeneratedCommand cmd = generateRandomCommand(name, 0, remaining, memoryUsage, memManager);
         p->addCommand(cmd.command);
@@ -750,7 +750,7 @@ int main() {
 
                 try
                 {
-                    auto p = make_shared<Process>(pidCounter++, "screen", procName, memSize, config.memPerFrame);
+                    auto p = make_shared<Process>(pidCounter++, "screen", procName, memSize, config.memPerFrame, memManager.get());
                     auto cmds = CommandParser::parse(instructionText, memSize, memManager.get());
                     for (auto& c : cmds) p->addCommand(c);
 
