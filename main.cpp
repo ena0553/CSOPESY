@@ -199,7 +199,7 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
     cout << "| PROCESS-SMI V01.00 Driver Version: 01.00 |\n";
     cout << "----------------------------------------------\n";
     cout << "CPU-Util: " << (used * 100.0 / totalCores) << "%\n";
-    cout << "Memory Usage: " << memManager->getUsedMemory() / (1048576.0) << "MiB / " << memManager->getTotalMemory() / (1048576.0) << "MiB\n"; // FIXME: might need MiB?
+    cout << "Memory Usage: " << memManager->getUsedMemory() << "KiB / " << memManager->getTotalMemory() << "KiB\n"; // FIXME: might need MiB?
 	cout << "Memory Util: " << (memManager->getUsedMemory() * 100.0 / memManager->getTotalMemory()) << "%\n\n";
 
     cout << "========================================\n";
@@ -217,8 +217,8 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
                 }
 
                 cout << left << setw(12) << p->getName()
-                    << " " << residentBytes / (1048576.0)
-                    << " MiB\n";
+                    << " " << residentBytes
+                    << " KiB\n";
             }
         }
     }
@@ -228,9 +228,9 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
 // vmstat command
 void vmstat(MemoryManager* memManager = nullptr) // FIXME: might need units
 {
-    cout << memManager->getTotalMemory() / (1048576.0) << " MiB total memory" << endl;
-	cout << memManager->getUsedMemory() / (1048576.0) << " MiB used memory" << endl;
-	cout << memManager->getFreeMemory() / (1048576.0) << " MiB free memory" << endl;
+    cout << memManager->getTotalMemory() << " KiB total memory" << endl;
+	cout << memManager->getUsedMemory() << " KiB used memory" << endl;
+	cout << memManager->getFreeMemory() << " KiB free memory" << endl;
 	cout << idleCpuTicks.load() << " idle cpu ticks" << endl; // not sure if it means all cores are idle at a time? or per core? will probably need changing
 	cout << activeCpuTicks.load() << " active cpu ticks" << endl; // is counter per core
 	cout << idleCpuTicks.load() + activeCpuTicks.load() << " total cpu ticks" << endl; // sum of prev two. not sure if same as global tick counter?
