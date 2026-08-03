@@ -882,17 +882,6 @@ int main() {
                     continue;
                 }
 
-                // if process finished execution
-                if (foundProcess->getState() == Process::TERMINATED)
-                {
-                    cout << "Process " << screen_r_process << " not found." << endl;
-                    continue;
-                }
-
-                
-
-
-
                 activeProcessInput = foundProcess;
                 screenMode = Mode::SUBSCREEN;
                 system("cls");
