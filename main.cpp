@@ -199,7 +199,7 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
     cout << "| PROCESS-SMI V01.00 Driver Version: 01.00 |\n";
     cout << "----------------------------------------------\n";
     cout << "CPU-Util: " << (used * 100.0 / totalCores) << "%\n";
-    cout << "Memory Usage: " << memManager->getUsedMemory() << "KiB / " << memManager->getTotalMemory() << "KiB\n"; // FIXME: might need MiB?
+    cout << "Memory Usage: " << memManager->getUsedMemory() << "KiB / " << memManager->getTotalMemory() << "KiB\n";
 	cout << "Memory Util: " << (memManager->getUsedMemory() * 100.0 / memManager->getTotalMemory()) << "%\n\n";
 
     cout << "========================================\n";
@@ -226,14 +226,14 @@ void mainMenu_process_smi(MemoryManager* memManager, ProcessScheduler& scheduler
 }
 
 // vmstat command
-void vmstat(MemoryManager* memManager = nullptr) // FIXME: might need units
+void vmstat(MemoryManager* memManager = nullptr)
 {
     cout << memManager->getTotalMemory() << " KiB total memory" << endl;
 	cout << memManager->getUsedMemory() << " KiB used memory" << endl;
 	cout << memManager->getFreeMemory() << " KiB free memory" << endl;
-	cout << idleCpuTicks.load() << " idle cpu ticks" << endl; // not sure if it means all cores are idle at a time? or per core? will probably need changing
-	cout << activeCpuTicks.load() << " active cpu ticks" << endl; // is counter per core
-	cout << idleCpuTicks.load() + activeCpuTicks.load() << " total cpu ticks" << endl; // sum of prev two. not sure if same as global tick counter?
+	cout << idleCpuTicks.load() << " idle cpu ticks" << endl;
+	cout << activeCpuTicks.load() << " active cpu ticks" << endl;
+	cout << idleCpuTicks.load() + activeCpuTicks.load() << " total cpu ticks" << endl;
 	cout << memManager->getPagedIn() << " pages paged in" << endl;
     cout << memManager->getPagedOut() << " pages paged out\n" << endl;
 }
@@ -675,7 +675,7 @@ int main() {
         cout << "  process-smi         - Summarized view of memory usage and a list of processes\n";
         cout << "  vmstat              - Detailed view of the processes, memory, pages\n";
         cout << "  screen -ls          - List running and finished processes\n";
-        cout << "  screen -s <name>    - Start a new process with the given name\n";
+        cout << "  screen -s <name> <mem>    - Start a new process with the given name\n";
         cout << "  screen -c <name> <mem> \"<instrs>\" - Create a process with custom instructions\n";
         cout << "  screen -r <name>    - Review an existing process with the given name\n";
         cout << "  clear               - Clear the console screen\n";
