@@ -91,6 +91,14 @@ std::shared_ptr<ICommand> CommandParser::parseOne(const std::string& instrRaw, i
         if (!args.empty() && args.front() == '(' && args.back() == ')')
             args = trim(args.substr(1, args.size() - 2));
 
+        // Convert \" -> "
+        size_t pos = 0;
+        while ((pos = args.find("\\\"", pos)) != std::string::npos)
+        {
+            args.replace(pos, 2, "\"");
+            pos += 1;
+        }
+
         size_t firstQuote = args.find('"');
         size_t secondQuote = args.find('"', firstQuote + 1);
 
