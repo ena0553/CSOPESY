@@ -107,6 +107,10 @@ int MemoryManager::resolveFrameLocked(Process* process, uint32_t address){
         throw AccessViolation(address);
     }
 
+    if (process->getMemoryUsage() > totalMemory) {
+		return -1; // Process memory usage exceeds total memory, cannot resolve frame
+    }
+
     int pageNum = static_cast<int>(address / frameSize);
     auto& pageTable = process->getPageTable();
     auto& pageTableEntry = pageTable[pageNum];
@@ -186,6 +190,9 @@ uint16_t MemoryManager::read(Process* process, uint32_t address)  {
 
     //find the address to read from
     int frameIndex = resolveFrameLocked(process, address);
+    if (frameIndex == -1) {
+        throw AccessViolation(address);
+    }
     uint32_t offset = address % frameSize;
 
     return frames[frameIndex].data[offset / sizeof(uint16_t)];
@@ -196,6 +203,9 @@ void MemoryManager::write(Process* process, uint32_t address, uint16_t value) {
     std::lock_guard<std::mutex> lock(memMutex);
     //find the address to write in
     int frameIndex = resolveFrameLocked(process, address);
+    if (frameIndex == -1) {
+        throw AccessViolation(address);
+    }
     uint32_t offset = address % frameSize;
 
     frames[frameIndex].data[offset / sizeof(uint16_t)]  = value;
