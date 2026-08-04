@@ -182,14 +182,12 @@ void MemoryManager::deallocate(Process* process) {
 }
 
 uint16_t MemoryManager::read(Process* process, uint32_t address)  {
-    //checks if there is a value at that address
     std::lock_guard<std::mutex> lock(memMutex);
-    //calculates location
 
+    //find the address to read from
     int frameIndex = resolveFrameLocked(process, address);
-    
     uint32_t offset = address % frameSize;
-    // returns data found
+
     return frames[frameIndex].data[offset / sizeof(uint16_t)];
 }
 
@@ -198,7 +196,6 @@ void MemoryManager::write(Process* process, uint32_t address, uint16_t value) {
     std::lock_guard<std::mutex> lock(memMutex);
     //find the address to write in
     int frameIndex = resolveFrameLocked(process, address);
-
     uint32_t offset = address % frameSize;
 
     frames[frameIndex].data[offset / sizeof(uint16_t)]  = value;
